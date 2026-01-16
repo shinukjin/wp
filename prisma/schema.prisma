@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 모델
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique // 계정 (이메일 형식)
+  password    String    // 비밀번호
+  name        String?   // 이름 (선택사항)
+  budget      Int       @default(0) // 현재 예산
+  ownMoney    Int       @default(0) // 내 보유금
+  loanAmount  Int       @default(0) // 내 대출금
+  loanRate    Float     @default(0) // 대출이율 (연이율, %)
+  loanPeriod  Int       @default(0) // 대출기간 (개월)
+  isDeleted   Boolean   @default(false) // 탈퇴유무
+  deletedAt   DateTime? // 탈퇴일시
+  lastLoginAt DateTime? // 마지막 접속시간
+  createdAt   DateTime  @default(now()) // 가입일
+  updatedAt   DateTime  @updatedAt // 수정일시
+  weddingPreps WeddingPrep[] // 결혼 준비 항목들
+  realEstates RealEstate[] // 부동산 항목들
+}
+
+// 결혼 준비 모델
+model WeddingPrep {
+  id          String    @id @default(cuid())
+  userId      String    // 사용자 ID
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String    // 구분 (예: 예식, 혼수, 신혼여행 등)
+  subCategory String?   // 상세구분 (예: 드레스, 메이크업 등)
+  content     String    // 내용
+  amount      Int       @default(0) // 금액
+  status      String    @default("진행중") // 상태 (진행중/완료/취소)
+  priority    Int       @default(0) // 우선순위 (0: 낮음, 1: 보통, 2: 높음)
+  dueDate     DateTime? // 예정일
+  completedAt DateTime? // 완료일
+  note        String?   // 비고
+  isDeleted   Boolean   @default(false) // 삭제유무
+  deletedAt   DateTime? // 삭제일시
+  createdAt   DateTime  @default(now()) // 생성일
+  updatedAt   DateTime  @updatedAt // 수정일시
+
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+}
+
+// 부동산 모델
+model RealEstate {
+  id          String    @id @default(cuid())
+  userId      String    // 사용자 ID
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String    // 구분 (매매/전세/월세 등)
+  region      String    // 지역
+  rooms       Int       @default(0) // 방 개수
+  bathrooms   Int       @default(0) // 화장실 개수
+  price       Int       @default(0) // 가격
+  preference  Int       @default(1) // 선호도 (0: 하, 1: 중, 2: 상)
+  images      String[]  @default([]) // 이미지 URLs (최대 5개)
+  url         String?   // URL
+  note        String?   // 비고
+  isDeleted   Boolean   @default(false) // 삭제유무
+  deletedAt   DateTime? // 삭제일시
+  createdAt   DateTime  @default(now()) // 생성일
+  updatedAt   DateTime  @updatedAt // 수정일시
+
+  @@index([userId])
+  @@index([category])
+  @@index([region])
+}
+
