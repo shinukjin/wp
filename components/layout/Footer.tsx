@@ -4,7 +4,7 @@ export default function Footer() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="border-t border-gray-200/50 bg-white/80 backdrop-blur-sm">
+    <footer className="border-t border-[var(--app-border)] bg-[var(--app-surface)]/95 backdrop-blur-sm">
       <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <div className="space-y-3">
           {/* Wedding Project 제목과 링크 */}
@@ -39,7 +39,7 @@ export default function Footer() {
           </div>
 
           {/* Copyright */}
-          <p className="text-xs text-gray-500 pt-2 border-t border-gray-200">
+          <p className="text-xs text-[var(--app-text-muted)] pt-2 border-t border-[var(--app-border)]">
             © {currentYear} Wedding Project. All rights reserved.
           </p>
         </div>

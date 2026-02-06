@@ -25,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko" className="overflow-x-hidden">
-      <body className={`${inter.className} bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 min-h-screen overflow-x-hidden`}>
+      <body className={`${inter.className} min-h-screen overflow-x-hidden`}>
         <StoreProvider>
           <div className="flex min-h-screen flex-col min-w-0 w-full max-w-screen-2xl mx-auto">
             <HeaderWrapper />

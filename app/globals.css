@@ -2,16 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 앱은 라이트 모드 고정 (모바일 디자인 통일) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --app-bg: #f4f3f1;
+  --app-surface: #ffffff;
+  --app-border: #e8e6e3;
+  --app-text: #1c1917;
+  --app-text-muted: #57534e;
+  --app-accent: #2563eb;
+  --app-accent-soft: #eff6ff;
 }
 
 html {
@@ -19,8 +18,8 @@ html {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--app-text);
+  background: var(--app-bg);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }

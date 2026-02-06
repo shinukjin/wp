@@ -55,7 +55,7 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
   const closeMenu = () => setMobileMenuOpen(false)
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200/50 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80 shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b border-[var(--app-border)] bg-[var(--app-surface)]/98 backdrop-blur-md shadow-sm">
       <div className="w-full max-w-screen-2xl mx-auto flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center shrink-0" onClick={closeMenu}>
@@ -120,7 +120,7 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
       {mobileMenuOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/20 md:hidden" aria-hidden onClick={closeMenu} />
-          <div className="absolute left-0 right-0 top-full z-50 border-b border-gray-200 bg-white shadow-lg md:hidden">
+          <div className="absolute left-0 right-0 top-full z-50 border-b border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg md:hidden">
             <nav className="flex flex-col p-3">
               <Link href="/wedding-prep" className={navLinkClass} onClick={closeMenu}>결혼 준비</Link>
               <Link href="/real-estate" className={navLinkClass} onClick={closeMenu}>부동산</Link>

@@ -13,7 +13,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-5 sm:p-8 border border-gray-200/50">
+        <div className="bg-[var(--app-surface)] rounded-2xl shadow-lg p-5 sm:p-8 border border-[var(--app-border)]">
           <LoginForm />
 
           <div className="mt-6 text-center">

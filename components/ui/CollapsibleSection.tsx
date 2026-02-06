@@ -29,7 +29,7 @@ export default function CollapsibleSection({
 
   return (
     <div className={cn(
-      !minimal && 'rounded-xl border border-gray-200/50 bg-white shadow-lg overflow-hidden',
+      !minimal && 'rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm overflow-hidden',
       minimal && 'rounded-xl overflow-hidden',
       compactDesktop && 'md:border-0 md:shadow-none md:bg-transparent md:rounded-none',
       minimal && 'md:rounded-none',
@@ -41,8 +41,8 @@ export default function CollapsibleSection({
         onClick={() => setOpen((o) => !o)}
         className={cn(
           'md:hidden w-full flex items-center justify-between px-3 py-2 text-left',
-          minimal ? 'bg-slate-100/80 border-b border-slate-200' : 'bg-gray-50/80 border-b border-gray-200/50',
-          'active:bg-gray-100 transition-colors touch-manipulation'
+          minimal ? 'bg-[#eeedeb] border-b border-[var(--app-border)]' : 'bg-[#f0eeeb] border-b border-[var(--app-border)]',
+          'active:opacity-90 transition-opacity touch-manipulation'
         )}
         aria-expanded={open}
       >
