@@ -1,8 +1,11 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios'
 
-// API 클라이언트 설정
+// API 클라이언트 설정 (NEXT_PUBLIC_APP_URL 또는 NEXT_PUBLIC_API_URL 사용)
 const createApiClient = (): AxiosInstance => {
-  const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') // 끝 슬래시 제거
+  const baseURL =
+    process.env.NEXT_PUBLIC_API_URL ||
+    (appUrl ? `${appUrl}/api` : 'http://localhost:3000/api')
 
   const client = axios.create({
     baseURL,
