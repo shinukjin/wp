@@ -5,6 +5,7 @@ import { useWeddingStore } from '@/lib/store/useWeddingStore'
 import apiClient from '@/lib/api/client'
 import { cn } from '@/lib/utils/cn'
 import RealEstateFilters from './RealEstateFilters'
+import { CollapsibleSection } from '@/components/ui'
 import * as XLSX from 'xlsx'
 
 interface RealEstate {
@@ -803,6 +804,7 @@ export default function RealEstateTable() {
   return (
     <div className="space-y-4">
       {/* 대출 정보 설정 */}
+      <CollapsibleSection title="대출 정보 설정" minimal compactDesktop>
       <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200/50">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900">대출 정보 설정</h3>
@@ -908,30 +910,91 @@ export default function RealEstateTable() {
           </div>
         )}
       </div>
+      </CollapsibleSection>
 
-      {/* 필터 및 액션 버튼 */}
-      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200/50">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* 검색조건 및 액션 버튼 */}
+      <CollapsibleSection title="검색조건" minimal compactDesktop defaultOpen={false}>
+      <div className="bg-white rounded-xl shadow-lg p-2 md:p-3 border border-gray-200/50">
+        <div className="flex flex-wrap items-center gap-2">
           <RealEstateFilters filters={filters} setFilters={setFilters} categories={categories} regions={regions} />
-          <div className="flex gap-2">
-            <button
-              onClick={handleExportExcel}
-              className={cn(
-                'px-4 py-2 text-xs font-medium rounded-lg',
-                'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800',
-                'transition-all duration-200 shadow-md hover:shadow-lg'
-              )}
-            >
-              엑셀 다운로드
-            </button>
-          </div>
+          <button
+            onClick={handleExportExcel}
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-lg',
+              'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800',
+              'transition-colors shadow-md touch-manipulation'
+            )}
+          >
+            엑셀
+          </button>
         </div>
       </div>
+      </CollapsibleSection>
 
-      {/* 테이블 */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/50">
+      {/* 모바일: 카드 목록 */}
+      <div className="md:hidden">
+      <CollapsibleSection title="목록" minimal defaultOpen={false}>
+      <div className="space-y-3">
+        {loading ? (
+          <div className="bg-white rounded-xl shadow border border-gray-200/50 p-6 text-center text-sm text-gray-500">로딩 중...</div>
+        ) : items.length === 0 && newItems.length === 0 ? (
+          <div className="bg-white rounded-xl shadow border border-gray-200/50 p-6 text-center text-sm text-gray-500">등록된 항목이 없습니다.</div>
+        ) : (
+          <>
+            {items.map((item, index) => (
+              <div key={item.id} className="bg-white rounded-xl shadow border border-gray-200/50 p-4">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-gray-500">{item.category} · {item.region}</p>
+                    <p className="text-sm font-medium text-gray-900 mt-0.5">방 {item.rooms} · 화장실 {item.bathrooms}</p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
+                      <span className="font-semibold text-gray-900">{item.price.toLocaleString('ko-KR')}원</span>
+                      <span className={cn(
+                        (loanInfo.ownMoney + loanInfo.loanAmount - item.price) >= 0 ? 'text-green-600' : 'text-red-600'
+                      )}>
+                        잔액 {(loanInfo.ownMoney + loanInfo.loanAmount - item.price).toLocaleString('ko-KR')}원
+                      </span>
+                      <span className="text-gray-500">{item.preference === 2 ? '선호 상' : item.preference === 1 ? '선호 중' : '선호 하'}</span>
+                    </div>
+                    {item.note ? <p className="text-xs text-gray-500 mt-1 truncate">{item.note}</p> : null}
+                    {item.images && item.images.length > 0 && (
+                      <button type="button" onClick={() => { setSelectedImages(item.images); setShowImageModal(true) }} className="mt-1 text-xs text-blue-600">이미지 ({item.images.length})</button>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button type="button" onClick={() => handleInlineEdit(item)} className="px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg">수정</button>
+                    <button type="button" onClick={() => handleDelete(item.id)} className="px-2 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg">삭제</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {newItems.map((newItem, idx) => (
+              <div key={`new-${idx}`} className="bg-amber-50 rounded-xl border border-amber-200 p-4 text-sm text-amber-800">
+                새 항목 입력 중 — 저장/취소는 아래 테이블에서 이용하거나 데스크톱에서 입력해 주세요.
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+              <button type="button" onClick={handleAddNewItem} className="px-3 py-2 text-xs font-medium rounded-lg bg-blue-600 text-white">+ 항목 추가</button>
+              {newItems.length > 0 && (
+                <>
+                  <button type="button" onClick={handleBatchSave} className="px-3 py-2 text-xs font-medium rounded-lg bg-green-600 text-white">일괄 저장 ({newItems.length}개)</button>
+                  <button type="button" onClick={() => setNewItems([])} className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-200 text-gray-700">모두 취소</button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      </CollapsibleSection>
+      </div>
+
+      {/* 테이블 (데스크톱 항상 표시, 모바일은 수정 시에만 표시) */}
+      <div className={cn('bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/50', editingId ? 'block mt-4' : 'hidden md:block')}>
+        {editingId && (
+          <p className="md:hidden px-3 py-2 text-xs text-gray-600 bg-blue-50 border-b border-blue-100">편집 중 — 좌우로 스크롤하여 수정 후 저장/취소 하세요.</p>
+        )}
         <div className="overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200">
+          <table className="w-full divide-y divide-gray-200 min-w-[1000px]">
             {/* 테이블 헤더 - 항상 표시 */}
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
               <tr>

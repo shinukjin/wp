@@ -411,14 +411,101 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-1.5 text-xs text-gray-600">
-        <span>총</span>
-        <span className="font-semibold text-gray-900">{filteredItems.length}</span>
-        <span>개 일정</span>
-        {searchTrim && <span className="text-slate-500">(검색 결과)</span>}
+      <p className="text-[11px] text-slate-500">
+        총 <span className="font-medium text-slate-700">{filteredItems.length}</span>개
+        {searchTrim && ' (검색)'}
+      </p>
+
+      {/* 모바일: 등록 버튼 위, 그 아래 목록 */}
+      <div className="md:hidden space-y-3">
+        <div className="flex flex-wrap gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+          <button type="button" onClick={handleAddNewItem} className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white">+ 일정 등록</button>
+          {newItems.length > 0 && (
+            <>
+              <button type="button" onClick={handleBatchSave} className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white">일괄 저장 ({newItems.length})</button>
+              <button type="button" onClick={() => setNewItems([])} className="px-2.5 py-1.5 text-xs font-medium rounded bg-gray-200 text-gray-700">취소</button>
+            </>
+          )}
+        </div>
+        {paginatedItems.map((item, index) => {
+          const dueStr = item.dueDate ? item.dueDate.slice(0, 10) : ''
+          const isHighlighted = !!highlightDate && dueStr === highlightDate
+          if (editingId === item.id) {
+            return (
+              <div key={item.id} className="bg-blue-50 rounded-xl border border-blue-200 p-4 space-y-3">
+                <label className="block text-xs font-medium text-gray-600">예정일·시간</label>
+                <input
+                  type="datetime-local"
+                  value={editFormData.dueDate ? editFormData.dueDate.slice(0, 16) : ''}
+                  onChange={(e) => setEditFormData((p) => ({ ...p, dueDate: e.target.value ? toDatetimeLocal(new Date(e.target.value).toISOString()) : '' }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                />
+                <label className="block text-xs font-medium text-gray-600">제목</label>
+                <input type="text" value={editFormData.title} onChange={(e) => setEditFormData((p) => ({ ...p, title: e.target.value }))} placeholder="제목" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" />
+                <label className="block text-xs font-medium text-gray-600">내용</label>
+                <input type="text" value={editFormData.note} onChange={(e) => setEditFormData((p) => ({ ...p, note: e.target.value }))} placeholder="내용" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" />
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={editFormData.remindEnabled} onChange={(e) => setEditFormData((p) => ({ ...p, remindEnabled: e.target.checked }))} className="rounded border-gray-300 text-blue-600" />
+                  <span className="text-xs text-gray-600">알림</span>
+                </label>
+                <div className="flex gap-2 pt-2">
+                  <button type="button" onClick={handleSaveEdit} className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg">저장</button>
+                  <button type="button" onClick={handleCancelEdit} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg">취소</button>
+                </div>
+              </div>
+            )
+          }
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                'bg-white rounded-xl shadow border border-slate-200 p-3',
+                isHighlighted && 'ring-2 ring-amber-400 ring-inset bg-amber-50/80'
+              )}
+            >
+              {/* 1~2줄: 1줄에 날짜·제목·알림, 2줄에 내용 + 버튼 */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                <span className="text-xs text-slate-500 shrink-0">{item.dueDate ? formatDateTime(item.dueDate) : '-'}</span>
+                <span className="text-sm font-medium text-gray-900 truncate min-w-0">{item.title}</span>
+                <span className="text-[10px] text-slate-400 shrink-0">{item.remindEnabled !== false ? '알림' : '-'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-1">
+                <p className="text-xs text-gray-500 truncate min-w-0 flex-1">{item.note || '—'}</p>
+                <div className="flex shrink-0 gap-1">
+                  <button type="button" onClick={() => handleEdit(item)} className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded">수정</button>
+                  <button type="button" onClick={() => handleDelete(item.id)} className="px-2 py-1 text-xs font-medium text-red-600 bg-red-50 rounded">삭제</button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        {newItems.map((row, idx) => (
+          <div key={`new-${idx}`} className="bg-amber-50 rounded-xl border border-amber-200 p-4 space-y-3">
+            <label className="block text-xs font-medium text-gray-600">예정일·시간</label>
+            <input type="datetime-local" value={row.dueDate ? row.dueDate.slice(0, 16) : ''} onChange={(e) => handleUpdateNewItem(idx, { dueDate: e.target.value ? toDatetimeLocal(new Date(e.target.value).toISOString()) : '' })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" />
+            <label className="block text-xs font-medium text-gray-600">제목</label>
+            <input type="text" value={row.title} onChange={(e) => handleUpdateNewItem(idx, { title: e.target.value })} placeholder="제목" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" />
+            <label className="block text-xs font-medium text-gray-600">내용</label>
+            <input type="text" value={row.note} onChange={(e) => handleUpdateNewItem(idx, { note: e.target.value })} placeholder="내용" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" />
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={row.remindEnabled} onChange={(e) => handleUpdateNewItem(idx, { remindEnabled: e.target.checked })} className="rounded border-gray-300 text-blue-600" />
+              <span className="text-xs text-gray-600">알림</span>
+            </label>
+            <div className="flex gap-2 pt-2">
+              <button type="button" onClick={() => handleSaveSingleNew(idx)} className="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg">저장</button>
+              <button type="button" onClick={() => handleCancelNew(idx)} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg">취소</button>
+            </div>
+          </div>
+        ))}
+        {filteredItems.length === 0 && newItems.length === 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-500">
+            {searchTrim ? '검색 결과가 없습니다.' : "등록된 일정이 없습니다. 위 '일정 등록'으로 추가하세요."}
+          </div>
+        )}
       </div>
 
-      <div className="bg-white rounded shadow overflow-hidden border border-slate-200">
+      {/* 데스크톱: 테이블 */}
+      <div className="hidden md:block bg-white rounded shadow overflow-hidden border border-slate-200">
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead className="bg-slate-100 border-b-2 border-slate-300 text-slate-700">

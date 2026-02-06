@@ -5,6 +5,7 @@ import { useWeddingStore } from '@/lib/store/useWeddingStore'
 import apiClient from '@/lib/api/client'
 import { cn } from '@/lib/utils/cn'
 import WeddingPrepFilters from './WeddingPrepFilters'
+import { CollapsibleSection } from '@/components/ui'
 import * as XLSX from 'xlsx'
 
 interface WeddingPrep {
@@ -546,6 +547,179 @@ export default function WeddingPrepTable() {
     )
   }
 
+  // 모바일 편집 카드 (기존 항목)
+  const MobileEditCard = ({
+    item,
+    onSave,
+    onCancel,
+    getStatusColor,
+    getPriorityColor,
+  }: {
+    item: WeddingPrep
+    onSave: (data: Partial<WeddingPrep>) => void
+    onCancel: () => void
+    getStatusColor: (s: string) => string
+    getPriorityColor: (p: number) => string
+  }) => {
+    const catOpts = ['스드메', '예식장', '가전/가구', '신혼여행', '기타']
+    const getSub = (c: string): string[] => {
+      switch (c) {
+        case '스드메': return ['스튜디오', '드레스', '메이크업', '기타']
+        case '예식장': return ['예식장', '기타']
+        case '가전/가구': return ['가전', '가구', '기타']
+        case '신혼여행': return ['항공권', '호텔', '기타']
+        case '기타': return ['기타']
+        default: return []
+      }
+    }
+    const [form, setForm] = useState({
+      category: item.category,
+      subCategory: item.subCategory || '',
+      content: item.content,
+      amount: String(item.amount),
+      status: item.status,
+      priority: String(item.priority ?? 0),
+      dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : '',
+      note: item.note || '',
+    })
+    const handleSubmit = () => {
+      if (!form.category || !form.content) { alert('구분과 내용은 필수입니다.'); return }
+      onSave({
+        id: item.id,
+        category: form.category,
+        subCategory: form.subCategory || null,
+        content: form.content,
+        amount: parseInt(form.amount) || 0,
+        status: form.status,
+        priority: parseInt(form.priority) || 0,
+        dueDate: form.dueDate ? new Date(form.dueDate) : null,
+        note: form.note || null,
+      })
+    }
+    return (
+      <div className="bg-blue-50 rounded-xl border border-blue-200 p-4 space-y-3">
+        <label className="block text-xs font-medium text-gray-600">구분</label>
+        <select value={form.category} onChange={(e) => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
+          {catOpts.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <label className="block text-xs font-medium text-gray-600">상세구분</label>
+        <select value={form.subCategory} onChange={(e) => setForm(f => ({ ...f, subCategory: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" disabled={!form.category}>
+          {getSub(form.category).map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <label className="block text-xs font-medium text-gray-600">내용</label>
+        <input type="text" value={form.content} onChange={(e) => setForm(f => ({ ...f, content: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" placeholder="내용" />
+        <label className="block text-xs font-medium text-gray-600">금액</label>
+        <input type="number" value={form.amount} onChange={(e) => setForm(f => ({ ...f, amount: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" min={0} />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-gray-600">상태</label>
+            <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
+              <option value="진행중">진행중</option>
+              <option value="완료">완료</option>
+              <option value="취소">취소</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600">우선순위</label>
+            <select value={form.priority} onChange={(e) => setForm(f => ({ ...f, priority: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
+              <option value="0">낮음</option>
+              <option value="1">보통</option>
+              <option value="2">높음</option>
+            </select>
+          </div>
+        </div>
+        <label className="block text-xs font-medium text-gray-600">예정일</label>
+        <input type="date" value={form.dueDate} onChange={(e) => setForm(f => ({ ...f, dueDate: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" />
+        <label className="block text-xs font-medium text-gray-600">비고</label>
+        <input type="text" value={form.note} onChange={(e) => setForm(f => ({ ...f, note: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" placeholder="비고" />
+        <div className="flex gap-2 pt-2">
+          <button type="button" onClick={handleSubmit} className="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg">저장</button>
+          <button type="button" onClick={onCancel} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg">취소</button>
+        </div>
+      </div>
+    )
+  }
+
+  // 모바일 새 항목 카드
+  const MobileNewItemCard = ({ item, onSave, onCancel }: { item: Partial<WeddingPrep>; onSave: (data: Partial<WeddingPrep>) => void; onCancel: () => void }) => {
+    const catOpts = ['스드메', '예식장', '가전/가구', '신혼여행', '기타']
+    const getSub = (c: string): string[] => {
+      switch (c) {
+        case '스드메': return ['스튜디오', '드레스', '메이크업', '기타']
+        case '예식장': return ['예식장', '기타']
+        case '가전/가구': return ['가전', '가구', '기타']
+        case '신혼여행': return ['항공권', '호텔', '기타']
+        case '기타': return ['기타']
+        default: return []
+      }
+    }
+    const [form, setForm] = useState({
+      category: item?.category || '',
+      subCategory: item?.subCategory || '',
+      content: item?.content || '',
+      amount: String(item?.amount ?? 0),
+      status: item?.status || '진행중',
+      priority: String(item?.priority ?? 0),
+      dueDate: item?.dueDate ? new Date(item.dueDate as Date).toISOString().slice(0, 10) : '',
+      note: item?.note || '',
+    })
+    const handleSubmit = () => {
+      if (!form.category || !form.content) { alert('구분과 내용은 필수입니다.'); return }
+      onSave({
+        category: form.category,
+        subCategory: form.subCategory || null,
+        content: form.content,
+        amount: parseInt(form.amount) || 0,
+        status: form.status,
+        priority: parseInt(form.priority) || 0,
+        dueDate: form.dueDate ? new Date(form.dueDate) : null,
+        note: form.note || null,
+      })
+    }
+    return (
+      <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 space-y-3">
+        <label className="block text-xs font-medium text-gray-600">구분</label>
+        <select value={form.category} onChange={(e) => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
+          {catOpts.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <label className="block text-xs font-medium text-gray-600">상세구분</label>
+        <select value={form.subCategory} onChange={(e) => setForm(f => ({ ...f, subCategory: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" disabled={!form.category}>
+          {getSub(form.category).map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <label className="block text-xs font-medium text-gray-600">내용</label>
+        <input type="text" value={form.content} onChange={(e) => setForm(f => ({ ...f, content: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" placeholder="내용" />
+        <label className="block text-xs font-medium text-gray-600">금액</label>
+        <input type="number" value={form.amount} onChange={(e) => setForm(f => ({ ...f, amount: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" min={0} />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-gray-600">상태</label>
+            <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
+              <option value="진행중">진행중</option>
+              <option value="완료">완료</option>
+              <option value="취소">취소</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600">우선순위</label>
+            <select value={form.priority} onChange={(e) => setForm(f => ({ ...f, priority: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
+              <option value="0">낮음</option>
+              <option value="1">보통</option>
+              <option value="2">높음</option>
+            </select>
+          </div>
+        </div>
+        <label className="block text-xs font-medium text-gray-600">예정일</label>
+        <input type="date" value={form.dueDate} onChange={(e) => setForm(f => ({ ...f, dueDate: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" />
+        <label className="block text-xs font-medium text-gray-600">비고</label>
+        <input type="text" value={form.note} onChange={(e) => setForm(f => ({ ...f, note: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" placeholder="비고" />
+        <div className="flex gap-2 pt-2">
+          <button type="button" onClick={handleSubmit} className="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg">저장</button>
+          <button type="button" onClick={onCancel} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg">취소</button>
+        </div>
+      </div>
+    )
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="text-center py-12">
@@ -566,6 +740,7 @@ export default function WeddingPrepTable() {
   return (
     <div className="space-y-4">
       {/* 현재 예산 표시 (상단) */}
+      <CollapsibleSection title="현재 예산" minimal compactDesktop>
       <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -615,30 +790,106 @@ export default function WeddingPrepTable() {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
-      {/* 필터 및 액션 버튼 */}
-      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200/50">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* 검색조건 및 액션 버튼 */}
+      <CollapsibleSection title="검색조건" minimal compactDesktop defaultOpen={false}>
+      <div className="bg-white rounded-xl shadow-lg p-2 md:p-3 border border-gray-200/50">
+        <div className="flex flex-wrap items-center gap-2">
           <WeddingPrepFilters filters={filters} setFilters={setFilters} categories={categories} />
-          <div className="flex gap-2">
-            <button
-              onClick={handleExportExcel}
-              className={cn(
-                'px-4 py-2 text-xs font-medium rounded-md',
-                'bg-green-600 text-white hover:bg-green-700',
-                'transition-colors shadow-sm'
-              )}
-            >
-              엑셀 다운로드
-            </button>
-          </div>
+          <button
+            onClick={handleExportExcel}
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-lg',
+              'bg-green-600 text-white hover:bg-green-700',
+              'transition-colors shadow-sm touch-manipulation'
+            )}
+          >
+            엑셀
+          </button>
         </div>
       </div>
+      </CollapsibleSection>
 
-      {/* 테이블 */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/50">
+      {/* 모바일: 카드 목록 */}
+      <div className="md:hidden">
+      <CollapsibleSection title="목록" minimal defaultOpen={false}>
+      <div className="space-y-3">
+        {items.length === 0 && newItems.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200/50 text-center text-sm text-gray-500">
+            등록된 항목이 없습니다.
+          </div>
+        ) : (
+          <>
+            {items.map((item, index) => (
+              editingId === item.id ? (
+                <MobileEditCard
+                  key={item.id}
+                  item={item}
+                  onSave={(data) => handleSave({ ...data, id: item.id })}
+                  onCancel={handleCancelEdit}
+                  getStatusColor={getStatusColor}
+                  getPriorityColor={getPriorityColor}
+                />
+              ) : (
+                <div key={item.id} className="bg-white rounded-xl shadow border border-gray-200/50 p-4">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-gray-500">{item.category}{item.subCategory ? ` · ${item.subCategory}` : ''}</p>
+                      <p className="text-sm font-medium text-gray-900 mt-0.5 truncate">{item.content}</p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-gray-600">
+                        <span className="font-semibold text-gray-900">{item.amount.toLocaleString('ko-KR')}원</span>
+                        <span className={cn('px-1.5 py-0.5 rounded', getStatusColor(item.status))}>{item.status}</span>
+                        <span>{item.dueDate ? new Date(item.dueDate).toLocaleDateString('ko-KR') : '-'}</span>
+                      </div>
+                      {item.note ? <p className="text-xs text-gray-500 mt-1 truncate">{item.note}</p> : null}
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button type="button" onClick={() => handleInlineEdit(item)} className="px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg">수정</button>
+                      <button type="button" onClick={() => handleDelete(item.id)} className="px-2 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg">삭제</button>
+                    </div>
+                  </div>
+                </div>
+              )
+            ))}
+            {newItems.map((newItem, idx) => (
+              <MobileNewItemCard
+                key={`new-${idx}`}
+                item={newItem}
+                onSave={(data) => {
+                  handleUpdateNewItem(idx, data)
+                  handleSave(data, idx)
+                }}
+                onCancel={() => handleCancelEdit(idx)}
+              />
+            ))}
+            <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+              <button type="button" onClick={handleAddNewItem} className="px-3 py-2 text-xs font-medium rounded-lg bg-blue-600 text-white">+ 항목 추가</button>
+              {newItems.length > 0 && (
+                <>
+                  <button type="button" onClick={handleBatchSave} className="px-3 py-2 text-xs font-medium rounded-lg bg-green-600 text-white">일괄 저장 ({newItems.length}개)</button>
+                  <button type="button" onClick={() => setNewItems([])} className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-200 text-gray-700">모두 취소</button>
+                </>
+              )}
+            </div>
+            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-xl border border-gray-200 text-sm">
+              <span className="text-gray-600">총 사용 금액</span>
+              <span className="font-bold text-gray-900">{totalAmount.toLocaleString('ko-KR')}원</span>
+            </div>
+            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-xl border border-gray-200 text-sm">
+              <span className="text-gray-600">잔액</span>
+              <span className={cn('font-bold', budgetDifference >= 0 ? 'text-green-600' : 'text-red-600')}>{budgetDifference >= 0 ? '+' : ''}{budgetDifference.toLocaleString('ko-KR')}원</span>
+            </div>
+          </>
+        )}
+      </div>
+      </CollapsibleSection>
+      </div>
+
+      {/* 데스크톱: 테이블 */}
+      <div className="hidden md:block bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/50">
         <div className="overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200 table-fixed">
+          <table className="w-full divide-y divide-gray-200 table-fixed min-w-[900px]">
             {/* 테이블 헤더 - 항상 표시 */}
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
               <tr>
