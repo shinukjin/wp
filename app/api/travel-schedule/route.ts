@@ -22,6 +22,9 @@ export async function GET(request: NextRequest) {
         isDeleted: false,
       },
       orderBy: { dueDate: 'asc' },
+      include: {
+        updatedBy: { select: { email: true, name: true } },
+      },
     })
 
     // 오늘(KST) 기준으로 오늘 이후 일정 먼저, 지난 일정은 뒤로
@@ -64,10 +67,14 @@ export async function POST(request: NextRequest) {
     const item = await prisma.travelSchedule.create({
       data: {
         userId: user.userId,
+        updatedById: user.userId,
         title,
         dueDate: dueDate ? new Date(dueDate) : null,
         note: note ?? null,
         remindEnabled: remindEnabled !== undefined ? !!remindEnabled : true,
+      },
+      include: {
+        updatedBy: { select: { email: true, name: true } },
       },
     })
 

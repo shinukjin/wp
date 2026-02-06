@@ -6,6 +6,7 @@ const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || '1h'
 export interface JwtPayload {
   userId: string
   email: string
+  isAdmin?: boolean
 }
 
 /**

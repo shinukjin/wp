@@ -26,7 +26,11 @@ interface DashboardData {
   realEstateCount: number
 }
 
-export default function Dashboard() {
+interface DashboardProps {
+  onLoaded?: () => void
+}
+
+export default function Dashboard({ onLoaded }: DashboardProps) {
   const { token } = useWeddingStore()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -37,6 +41,10 @@ export default function Dashboard() {
       fetchDashboardData()
     }
   }, [token])
+
+  useEffect(() => {
+    if (!loading) onLoaded?.()
+  }, [loading, onLoaded])
 
   const fetchDashboardData = async () => {
     try {
@@ -56,11 +64,7 @@ export default function Dashboard() {
   }
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <div className="text-gray-600">로딩 중...</div>
-      </div>
-    )
+    return null
   }
 
   if (error) {

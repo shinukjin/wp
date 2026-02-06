@@ -36,6 +36,8 @@ interface CalendarProps {
   refreshKey?: number
   /** 검색어: 일정계획 제목·내용, 결혼준비 내용·구분 필터 (캘린더 숫자 반영) */
   searchQuery?: string
+  /** 초기 로딩 완료 시 호출 (공통 스피너용) */
+  onLoaded?: () => void
 }
 
 function matchSearchEvent(q: string, event: CalendarEvent): boolean {
@@ -54,7 +56,7 @@ function matchSearchTravel(q: string, te: TravelEvent): boolean {
   )
 }
 
-export default function Calendar({ selectedDate: controlledSelected, onSelectDate, refreshKey = 0, searchQuery = '' }: CalendarProps = {}) {
+export default function Calendar({ selectedDate: controlledSelected, onSelectDate, refreshKey = 0, searchQuery = '', onLoaded }: CalendarProps = {}) {
   const { token } = useWeddingStore()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null)
@@ -72,6 +74,10 @@ export default function Calendar({ selectedDate: controlledSelected, onSelectDat
       fetchCalendarData()
     }
   }, [token, currentDate, refreshKey])
+
+  useEffect(() => {
+    if (!loading) onLoaded?.()
+  }, [loading, onLoaded])
 
   const fetchCalendarData = async () => {
     try {
@@ -146,11 +152,7 @@ export default function Calendar({ selectedDate: controlledSelected, onSelectDat
   }
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-gray-600">로딩 중...</div>
-      </div>
-    )
+    return null
   }
 
   if (error) {

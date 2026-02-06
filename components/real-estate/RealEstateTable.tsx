@@ -5,8 +5,50 @@ import { useWeddingStore } from '@/lib/store/useWeddingStore'
 import apiClient from '@/lib/api/client'
 import { cn } from '@/lib/utils/cn'
 import RealEstateFilters from './RealEstateFilters'
-import { CollapsibleSection } from '@/components/ui'
+import {
+  CollapsibleSection,
+  DataTable,
+  Pagination,
+  LoadingScreen,
+  ButtonSave,
+  ButtonCancel,
+  ButtonEdit,
+  ButtonDelete,
+  ButtonAddItem,
+  ButtonExportExcel,
+  ButtonBatchSave,
+  ButtonSecondary,
+  ButtonPrimary,
+} from '@/components/ui'
 import * as XLSX from 'xlsx'
+
+const PAGE_SIZE = 20
+
+const URL_COL_WIDTH = 180
+const IMAGE_PATH_MAX_LEN = 45
+
+function truncateImagePath(path: string): string {
+  if (!path || path.length <= IMAGE_PATH_MAX_LEN) return path || '이미지 없음'
+  return path.slice(0, IMAGE_PATH_MAX_LEN) + '...'
+}
+
+const REAL_ESTATE_COLUMNS = [
+  { key: 'no', label: '번호', width: 56, minWidth: 48, align: 'center' as const },
+  { key: 'category', label: '구분', width: 88, minWidth: 72, align: 'left' as const },
+  { key: 'region', label: '지역', width: 120, minWidth: 100, align: 'left' as const },
+  { key: 'rooms', label: '방', width: 120, minWidth:100, align: 'center' as const },
+  { key: 'bathrooms', label: '화장실', width: 80, minWidth: 60, align: 'center' as const },
+  { key: 'price', label: '가격', width: 80, minWidth: 60, align: 'right' as const },
+  { key: 'balance', label: '잔액', width: 140, minWidth: 120, align: 'right' as const },
+  { key: 'monthly', label: '월납입금', width: 130, minWidth: 110, align: 'right' as const },
+  { key: 'preference', label: '선호도', width: 80, minWidth: 64, align: 'center' as const },
+  { key: 'images', label: '이미지', width: 200, minWidth: 180, align: 'center' as const },
+  { key: 'url', label: 'URL', width: URL_COL_WIDTH, minWidth: 160, align: 'left' as const },
+  { key: 'note', label: '비고', width: URL_COL_WIDTH * 2, minWidth: 320, align: 'left' as const },
+  { key: 'updatedBy', label: '수정자', width: 120, minWidth: 100, align: 'left' as const },
+  { key: 'updatedAt', label: '수정일시', width: 150, minWidth: 130, align: 'left' as const },
+  { key: 'action', label: '작업', width: 130, minWidth: 110, align: 'center' as const },
+]
 
 interface RealEstate {
   id: string
@@ -19,6 +61,8 @@ interface RealEstate {
   images: string[]
   url: string | null
   note: string | null
+  updatedBy?: { email: string; name: string | null } | null
+  updatedAt?: string | Date | null
 }
 
 export default function RealEstateTable() {
@@ -48,11 +92,22 @@ export default function RealEstateTable() {
   })
   const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [showImageModal, setShowImageModal] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // 항목 목록 조회
-  const fetchItems = async () => {
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const paginatedItems = useMemo(
+    () => items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [items, currentPage]
+  )
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(Math.max(1, totalPages))
+  }, [currentPage, totalPages])
+
+  // 항목 목록 조회 (silent: true면 로딩 표시 없이 백그라운드 갱신 - 깜빡임 방지)
+  const fetchItems = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const params = new URLSearchParams()
       if (filters.category) params.append('category', filters.category)
       if (filters.region) params.append('region', filters.region)
@@ -136,10 +191,16 @@ export default function RealEstateTable() {
     return monthlyPayment
   }
 
+  // 검색조건(필터) 변경 시 로딩 화면 없이 백그라운드 갱신, 최초 진입 시에만 로딩 표시
+  const hasInitialLoadedRef = useRef(false)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isAuthenticated) return
+    if (!hasInitialLoadedRef.current) {
+      hasInitialLoadedRef.current = true
       fetchItems()
       fetchLoanInfo()
+    } else {
+      fetchItems(true)
     }
   }, [isAuthenticated, filters])
 
@@ -149,7 +210,7 @@ export default function RealEstateTable() {
 
     try {
       await apiClient.delete(`/real-estate/${id}`)
-      fetchItems()
+      fetchItems(true)
     } catch (error: any) {
       alert(error.response?.data?.error || '삭제 중 오류가 발생했습니다.')
     }
@@ -170,7 +231,7 @@ export default function RealEstateTable() {
           setNewItems(prev => prev.filter((_, idx) => idx !== newItemIndex))
         }
       }
-      fetchItems()
+      fetchItems(true)
     } catch (error: any) {
       alert(error.response?.data?.error || '저장 중 오류가 발생했습니다.')
     }
@@ -196,7 +257,7 @@ export default function RealEstateTable() {
       )
       
       setNewItems([])
-      fetchItems()
+      fetchItems(true)
       alert(`${validItems.length}개의 항목이 저장되었습니다.`)
     } catch (error: any) {
       alert(error.response?.data?.error || '저장 중 오류가 발생했습니다.')
@@ -393,6 +454,7 @@ export default function RealEstateTable() {
     onCancel,
     onChange,
     showSaveButton = true,
+    isNewRow = false,
     loanInfo: loanInfoProp,
     calculateMonthlyPayment: calcMonthlyPayment,
   }: {
@@ -401,6 +463,7 @@ export default function RealEstateTable() {
     onCancel?: () => void
     onChange?: (data: Partial<RealEstate>) => void
     showSaveButton?: boolean
+    isNewRow?: boolean
     loanInfo: typeof loanInfo
     calculateMonthlyPayment: (price: number) => number
   }) => {
@@ -437,8 +500,8 @@ export default function RealEstateTable() {
       setFormData(prev => ({ ...prev, [field]: value }))
     }, [])
 
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault()
+    const handleSubmit = (e?: React.FormEvent) => {
+      e?.preventDefault()
       if (!formData.category || !formData.region) {
         alert('구분과 지역은 필수입니다.')
         return
@@ -469,8 +532,10 @@ export default function RealEstateTable() {
     }
 
     return (
-      <tr className="bg-blue-50 border-b border-blue-100">
-        <td className="px-3 py-2 text-center text-xs text-gray-500">-</td>
+      <tr className={cn(
+        isNewRow ? 'bg-amber-100/90 border-l-2 border-l-amber-500 border-b border-amber-200' : 'bg-blue-50/80 border-b-2 border-blue-200 border-l-2 border-l-blue-400'
+      )}>
+        <td className="px-2 py-1.5 text-center text-xs text-slate-500">-</td>
         <td className="px-3 py-2">
           <select
             value={formData.category}
@@ -574,15 +639,16 @@ export default function RealEstateTable() {
                       }}
                     />
                   )}
-                  <span className="text-xs text-gray-600 truncate flex-1">{url || '이미지 없음'}</span>
+                  <span className="text-xs text-gray-600 truncate flex-1 min-w-0" title={url || ''}>
+                    {truncateImagePath(url)}
+                  </span>
                 </div>
-                <button
-                  type="button"
+                <ButtonDelete
                   onClick={() => setImageUrls(imageUrls.filter((_, i) => i !== idx))}
-                  className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                  className="px-2 py-1 text-white bg-red-500 hover:bg-red-600 border-0"
                 >
                   삭제
-                </button>
+                </ButtonDelete>
               </div>
             ))}
             {/* 파일 선택 */}
@@ -667,20 +733,13 @@ export default function RealEstateTable() {
             className="w-full px-2 py-1 text-xs border border-gray-300 rounded resize-y"
           />
         </td>
+        <td className="px-3 py-2"></td>
+        <td className="px-3 py-2"></td>
         <td className="px-3 py-2 text-center">
           {showSaveButton && onSave && (
-            <button
-              onClick={handleSubmit}
-              className="text-green-600 hover:text-green-900 mr-2 text-xs"
-            >
-              저장
-            </button>
+            <ButtonSave onClick={() => handleSubmit()} className="mr-2" />
           )}
-          {onCancel && (
-            <button onClick={onCancel} className="text-red-600 hover:text-red-900 text-xs">
-              취소
-            </button>
-          )}
+          {onCancel && <ButtonCancel onClick={() => onCancel()} />}
         </td>
       </tr>
     )
@@ -701,8 +760,8 @@ export default function RealEstateTable() {
     }
 
     return (
-      <tr className="hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50/30 transition-all duration-200 border-b border-gray-100">
-        <td className="px-3 py-3 text-center text-xs text-gray-900">{index + 1}</td>
+      <tr className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
+        <td className="px-2 py-1.5 text-center text-xs text-slate-700">{index + 1}</td>
         <td className="px-3 py-3 whitespace-nowrap text-xs font-medium text-gray-900">
           {item.category}
         </td>
@@ -775,19 +834,15 @@ export default function RealEstateTable() {
             ? `${item.note.substring(0, 25)}...` 
             : (item.note || '-')}
         </td>
+        <td className="px-3 py-3 text-xs text-gray-600 truncate" title={item.updatedBy?.email}>
+          {item.updatedBy ? (item.updatedBy.name || item.updatedBy.email) : '-'}
+        </td>
+        <td className="px-3 py-3 text-center whitespace-nowrap text-xs text-gray-500">
+          {item.updatedAt ? new Date(item.updatedAt).toLocaleString('ko-KR') : '-'}
+        </td>
         <td className="px-3 py-3 text-center whitespace-nowrap text-xs font-medium">
-          <button
-            onClick={() => handleInlineEdit(item)}
-            className="px-2 py-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 mr-2 text-xs font-medium shadow-sm hover:shadow"
-          >
-            수정
-          </button>
-          <button
-            onClick={() => handleDelete(item.id)}
-            className="px-2 py-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 text-xs font-medium shadow-sm hover:shadow"
-          >
-            삭제
-          </button>
+          <ButtonEdit onClick={() => handleInlineEdit(item)} className="mr-2" />
+          <ButtonDelete onClick={() => handleDelete(item.id)} />
         </td>
       </tr>
     )
@@ -801,6 +856,10 @@ export default function RealEstateTable() {
     )
   }
 
+  if (loading) {
+    return <LoadingScreen />
+  }
+
   return (
     <div className="space-y-4">
       {/* 대출 정보 설정 */}
@@ -809,7 +868,7 @@ export default function RealEstateTable() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900">대출 정보 설정</h3>
           {editingLoanInfo ? (
-            <button
+            <ButtonSecondary
               onClick={() => {
                 setEditingLoanInfo(false)
                 setTempLoanInfo({
@@ -819,17 +878,17 @@ export default function RealEstateTable() {
                   loanPeriod: loanInfo.loanPeriod.toString(),
                 })
               }}
-              className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200 shadow-sm hover:shadow"
+              className="px-3 py-1.5 rounded-lg"
             >
               취소
-            </button>
+            </ButtonSecondary>
           ) : (
-            <button
+            <ButtonEdit
               onClick={() => setEditingLoanInfo(true)}
-              className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 shadow-sm hover:shadow"
+              className="px-3 py-1.5 rounded-lg"
             >
               수정
-            </button>
+            </ButtonEdit>
           )}
         </div>
         {editingLoanInfo ? (
@@ -881,12 +940,7 @@ export default function RealEstateTable() {
               />
             </div>
             <div className="col-span-2 md:col-span-4 flex justify-end">
-              <button
-                onClick={handleLoanInfoUpdate}
-                className="px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                저장
-              </button>
+              <ButtonPrimary onClick={handleLoanInfoUpdate} className="px-3 py-1.5 rounded-lg">저장</ButtonPrimary>
             </div>
           </div>
         ) : (
@@ -917,16 +971,7 @@ export default function RealEstateTable() {
       <div className="bg-white rounded-xl shadow-lg p-2 md:p-3 border border-gray-200/50">
         <div className="flex flex-wrap items-center gap-2">
           <RealEstateFilters filters={filters} setFilters={setFilters} categories={categories} regions={regions} />
-          <button
-            onClick={handleExportExcel}
-            className={cn(
-              'px-3 py-1.5 text-sm font-medium rounded-lg',
-              'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800',
-              'transition-colors shadow-md touch-manipulation'
-            )}
-          >
-            엑셀
-          </button>
+          <ButtonExportExcel onClick={handleExportExcel} />
         </div>
       </div>
       </CollapsibleSection>
@@ -935,13 +980,11 @@ export default function RealEstateTable() {
       <div className="md:hidden">
       <CollapsibleSection title="목록" minimal defaultOpen={false}>
       <div className="space-y-3">
-        {loading ? (
-          <div className="bg-white rounded-xl shadow border border-gray-200/50 p-6 text-center text-sm text-gray-500">로딩 중...</div>
-        ) : items.length === 0 && newItems.length === 0 ? (
+        {items.length === 0 && newItems.length === 0 ? (
           <div className="bg-white rounded-xl shadow border border-gray-200/50 p-6 text-center text-sm text-gray-500">등록된 항목이 없습니다.</div>
         ) : (
           <>
-            {items.map((item, index) => (
+            {paginatedItems.map((item, index) => (
               <div key={item.id} className="bg-white rounded-xl shadow border border-gray-200/50 p-4">
                 <div className="flex justify-between items-start gap-2">
                   <div className="min-w-0 flex-1">
@@ -962,8 +1005,8 @@ export default function RealEstateTable() {
                     )}
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <button type="button" onClick={() => handleInlineEdit(item)} className="px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg">수정</button>
-                    <button type="button" onClick={() => handleDelete(item.id)} className="px-2 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg">삭제</button>
+                    <ButtonEdit onClick={() => handleInlineEdit(item)} className="px-2 py-1.5 bg-blue-50 rounded-lg" />
+                    <ButtonDelete onClick={() => handleDelete(item.id)} className="px-2 py-1.5 bg-red-50 rounded-lg" />
                   </div>
                 </div>
               </div>
@@ -974,11 +1017,11 @@ export default function RealEstateTable() {
               </div>
             ))}
             <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
-              <button type="button" onClick={handleAddNewItem} className="px-3 py-2 text-xs font-medium rounded-lg bg-blue-600 text-white">+ 항목 추가</button>
+              <ButtonAddItem onClick={handleAddNewItem} className="px-3 py-2 rounded-lg" />
               {newItems.length > 0 && (
                 <>
-                  <button type="button" onClick={handleBatchSave} className="px-3 py-2 text-xs font-medium rounded-lg bg-green-600 text-white">일괄 저장 ({newItems.length}개)</button>
-                  <button type="button" onClick={() => setNewItems([])} className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-200 text-gray-700">모두 취소</button>
+                  <ButtonBatchSave onClick={handleBatchSave}>일괄 저장 ({newItems.length}개)</ButtonBatchSave>
+                  <ButtonSecondary onClick={() => setNewItems([])} className="px-3 py-2">모두 취소</ButtonSecondary>
                 </>
               )}
             </div>
@@ -988,139 +1031,75 @@ export default function RealEstateTable() {
       </CollapsibleSection>
       </div>
 
-      {/* 테이블 (데스크톱 항상 표시, 모바일은 수정 시에만 표시) */}
-      <div className={cn('bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/50', editingId ? 'block mt-4' : 'hidden md:block')}>
-        {editingId && (
-          <p className="md:hidden px-3 py-2 text-xs text-gray-600 bg-blue-50 border-b border-blue-100">편집 중 — 좌우로 스크롤하여 수정 후 저장/취소 하세요.</p>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200 min-w-[1000px]">
-            {/* 테이블 헤더 - 항상 표시 */}
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
+      {/* 테이블 - 컬럼 리사이즈 가능 (데스크톱 표시, 모바일은 수정 시에만) */}
+      <div className={cn('hidden md:block', editingId && 'block mt-4')}>
+        <div className="bg-white rounded shadow overflow-hidden border border-slate-200">
+          {editingId && (
+            <p className="md:hidden px-2 py-2 text-xs text-slate-600 bg-blue-50 border-b border-blue-100">편집 중 — 좌우로 스크롤하여 수정 후 저장/취소 하세요.</p>
+          )}
+          <DataTable
+            columns={REAL_ESTATE_COLUMNS}
+            storageKey="real-estate-table-v2"
+            minTableWidth={1600}
+            fillContainer={false}
+          >
+            <tr className="bg-blue-50 border-b-2 border-blue-200">
+              <td className="px-2 py-2 text-center text-xs text-slate-500">-</td>
+              <td colSpan={13} className="px-2 py-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <ButtonAddItem onClick={handleAddNewItem} />
+                  {newItems.length > 0 && (
+                    <>
+                      <ButtonBatchSave onClick={handleBatchSave}>일괄 저장 ({newItems.length}개)</ButtonBatchSave>
+                      <ButtonSecondary onClick={() => setNewItems([])}>모두 취소</ButtonSecondary>
+                    </>
+                  )}
+                </div>
+              </td>
+              <td className="px-2 py-2" />
+            </tr>
+
+            {newItems.map((newItem, idx) => (
+              <InlineEditRow
+                key={`new-${idx}`}
+                item={newItem}
+                onCancel={() => handleCancelEdit(idx)}
+                onSave={(data) => {
+                  handleUpdateNewItem(idx, data)
+                  handleSave(data, idx)
+                }}
+                showSaveButton={true}
+                isNewRow
+                loanInfo={loanInfo}
+                calculateMonthlyPayment={calculateMonthlyPayment}
+              />
+            ))}
+
+            {items.length === 0 && newItems.length === 0 ? (
               <tr>
-                <th className="w-12 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  번호
-                </th>
-                <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  구분
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  지역
-                </th>
-                <th className="w-20 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  방
-                </th>
-                <th className="w-20 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  화장실
-                </th>
-                <th className="w-32 px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  가격
-                </th>
-                <th className="w-32 px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  잔액
-                </th>
-                <th className="w-32 px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  월납입금
-                </th>
-                <th className="w-20 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  선호도
-                </th>
-                <th className="w-24 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  이미지
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  URL
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  비고
-                </th>
-                <th className="w-28 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  액션
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {/* 데이터 행 */}
-              {loading ? (
-                <tr>
-                  <td colSpan={13} className="px-4 py-12 text-center text-gray-500">
-                    로딩 중...
-                  </td>
-                </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={13} className="px-4 py-12 text-center text-gray-500">
-                    등록된 항목이 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item, index) => (
-                  <TableRow key={item.id} item={item} index={index} />
-                ))
-              )}
-
-              {/* 새 항목 추가 행들 */}
-              {newItems.map((newItem, idx) => (
-                <InlineEditRow
-                  key={`new-${idx}`}
-                  item={newItem}
-                  onCancel={() => handleCancelEdit(idx)}
-                  onSave={(data) => {
-                    // 저장 시에만 부모 상태 업데이트
-                    handleUpdateNewItem(idx, data)
-                    handleSave(data, idx)
-                  }}
-                  showSaveButton={true}
-                  loanInfo={loanInfo}
-                  calculateMonthlyPayment={calculateMonthlyPayment}
-                />
-              ))}
-
-              {/* 추가 버튼 및 일괄 저장 */}
-              <tr className="hover:bg-gray-50 bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-300">
-                <td colSpan={13} className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleAddNewItem}
-                      className={cn(
-                        'px-3 py-1.5 text-xs font-medium rounded-md',
-                        'bg-blue-600 text-white hover:bg-blue-700',
-                        'transition-colors shadow-sm'
-                      )}
-                    >
-                      + 항목 추가
-                    </button>
-                    {newItems.length > 0 && (
-                      <>
-                        <button
-                          onClick={handleBatchSave}
-                          className={cn(
-                            'px-3 py-1.5 text-xs font-medium rounded-md',
-                            'bg-green-600 text-white hover:bg-green-700',
-                            'transition-colors shadow-sm'
-                          )}
-                        >
-                          일괄 저장 ({newItems.length}개)
-                        </button>
-                        <button
-                          onClick={() => setNewItems([])}
-                          className={cn(
-                            'px-3 py-1.5 text-xs font-medium rounded-md',
-                            'bg-gray-200 text-gray-700 hover:bg-gray-300',
-                            'transition-colors'
-                          )}
-                        >
-                          모두 취소
-                        </button>
-                      </>
-                    )}
-                  </div>
+                <td colSpan={15} className="px-2 py-8 text-center text-xs text-slate-500">
+                  등록된 항목이 없습니다. 위 &apos;항목 추가&apos;로 새 행을 추가하세요.
                 </td>
               </tr>
-            </tbody>
-          </table>
+            ) : (
+              paginatedItems.map((item, index) => (
+                <TableRow key={item.id} item={item} index={(currentPage - 1) * PAGE_SIZE + index} />
+              ))
+            )}
+          </DataTable>
         </div>
       </div>
+
+      {items.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={items.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          className="mt-3"
+        />
+      )}
 
       {/* 이미지 팝업 모달 */}
       {showImageModal && (

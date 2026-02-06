@@ -40,6 +40,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 관리자 승인 전에는 로그인 불가
+    if (!user.approved) {
+      return NextResponse.json(
+        { error: '승인 대기 중입니다. 관리자 승인 후 로그인할 수 있습니다.' },
+        { status: 403 }
+      )
+    }
+
     // 비밀번호 검증
     const isPasswordValid = await verifyPassword(password, user.password)
     if (!isPasswordValid) {
@@ -50,16 +58,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 마지막 로그인 시간 업데이트
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    })
+    const now = new Date()
+    // 마지막 로그인 시간 업데이트 + 로그인 로그 기록 (당일 접속량 통계용)
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: now },
+      }),
+      prisma.loginLog.create({
+        data: { userId: user.id },
+      }),
+    ])
 
-    // JWT 토큰 생성
+    // JWT 토큰 생성 (isAdmin 포함)
     const token = generateToken({
       userId: user.id,
       email: user.email,
+      isAdmin: user.isAdmin,
     })
 
     logger.info(`Successful login for user: ${user.email}`)
@@ -73,6 +88,7 @@ export async function POST(request: NextRequest) {
           id: user.id,
           email: user.email,
           name: user.name,
+          isAdmin: user.isAdmin,
         },
       },
       { status: 200 }

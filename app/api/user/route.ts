@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
         id: true,
         email: true,
         name: true,
+        isAdmin: true,
         budget: true,
         ownMoney: true,
         loanAmount: true,

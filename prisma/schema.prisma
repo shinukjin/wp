@@ -16,6 +16,8 @@ model User {
   email             String    @unique // 계정 (이메일 형식)
   password          String    // 비밀번호
   name              String?   // 이름 (선택사항)
+  approved          Boolean   @default(false) // 관리자 승인 여부 (승인 후 로그인 가능)
+  isAdmin           Boolean   @default(false) // 관리자 여부
   budget            Int       @default(0) // 현재 예산
   ownMoney          Int       @default(0) // 내 보유금
   loanAmount        Int       @default(0) // 내 대출금
@@ -34,6 +36,21 @@ model User {
   connectionRequestsReceived ConnectionRequest[] @relation("ConnectionRequestTo")
   connectionsAsUser1 Connection[] @relation("ConnectionUser1")
   connectionsAsUser2 Connection[] @relation("ConnectionUser2")
+  weddingPrepUpdates   WeddingPrep[] @relation("WeddingPrepUpdatedBy")
+  realEstateUpdates    RealEstate[] @relation("RealEstateUpdatedBy")
+  travelScheduleUpdates TravelSchedule[] @relation("TravelScheduleUpdatedBy")
+  loginLogs            LoginLog[]
+}
+
+// 로그인 로그 (당일 접속량 등 통계용)
+model LoginLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // 연결 신청 (상대방 ID로 신청 → 승인 시 연결)
@@ -69,8 +86,10 @@ model Connection {
 // 결혼 준비 모델
 model WeddingPrep {
   id          String    @id @default(cuid())
-  userId      String    // 사용자 ID
+  userId      String    // 사용자 ID (소유자)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedById String?   // 마지막 수정자 ID
+  updatedBy   User?     @relation("WeddingPrepUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   category    String    // 구분 (예: 예식, 혼수, 신혼여행 등)
   subCategory String?   // 상세구분 (예: 드레스, 메이크업 등)
   content     String    // 내용
@@ -93,8 +112,10 @@ model WeddingPrep {
 // 부동산 모델
 model RealEstate {
   id          String    @id @default(cuid())
-  userId      String    // 사용자 ID
+  userId      String    // 사용자 ID (소유자)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedById String?   // 마지막 수정자 ID
+  updatedBy   User?     @relation("RealEstateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   category    String    // 구분 (매매/전세/월세 등)
   region      String    // 지역
   rooms       Int       @default(0) // 방 개수
@@ -117,8 +138,10 @@ model RealEstate {
 // 여행 일정 (일정계획)
 model TravelSchedule {
   id            String    @id @default(cuid())
-  userId        String    // 사용자 ID
+  userId        String    // 사용자 ID (소유자)
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedById   String?   // 마지막 수정자 ID
+  updatedBy     User?     @relation("TravelScheduleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   title         String    // 제목
   dueDate       DateTime? // 예정일
   note          String?   // 내용

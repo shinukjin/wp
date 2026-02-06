@@ -9,10 +9,13 @@ import { cn } from '@/lib/utils/cn'
 interface HeaderProps {
   initialIsAuthenticated?: boolean
   initialToken?: string | null
+  initialIsAdmin?: boolean
 }
 
-export default function Header({ initialIsAuthenticated = false, initialToken = null }: HeaderProps) {
+export default function Header({ initialIsAuthenticated = false, initialToken = null, initialIsAdmin = false }: HeaderProps) {
   const { user, isAuthenticated, logout, _hasHydrated, login } = useWeddingStore()
+  const isAdminFromStore = user?.isAdmin === true
+  const displayIsAdmin = _hasHydrated ? isAdminFromStore : initialIsAdmin
   const { theme, setTheme } = useThemeStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -103,6 +106,11 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
           </div>
           {displayIsAuthenticated ? (
             <>
+              {displayIsAdmin && (
+                <Link href="/admin" className="text-sm font-medium text-amber-700 hover:text-amber-800 px-2 py-1 rounded-md hover:bg-amber-50 shrink-0">
+                  관리자
+                </Link>
+              )}
               <Link href="/my-info" className="text-sm font-medium text-gray-700 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-blue-50 shrink-0">
                 내 정보
               </Link>
@@ -168,6 +176,9 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
           <div className="fixed inset-0 z-40 bg-black/20 md:hidden" aria-hidden onClick={closeMenu} />
           <div className="absolute left-0 right-0 top-full z-50 border-b border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg md:hidden">
             <nav className="flex flex-col p-3">
+              {displayIsAdmin && (
+                <Link href="/admin" className={cn(navLinkClass, 'text-amber-700 hover:bg-amber-50')} onClick={closeMenu}>관리자</Link>
+              )}
               <div className="flex items-center gap-2 pb-2 mb-2 border-b border-[var(--app-border)]">
                 <span className="text-xs text-[var(--app-text-muted)]">테마</span>
                 <div className="flex rounded-md border border-[var(--app-border)] p-0.5">

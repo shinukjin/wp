@@ -6,6 +6,29 @@ import { useWeddingStore } from '@/lib/store/useWeddingStore'
 import apiClient from '@/lib/api/client'
 import { cn } from '@/lib/utils/cn'
 import Pagination from '@/components/ui/Pagination'
+import {
+  DataTable,
+  ButtonSave,
+  ButtonCancel,
+  ButtonEdit,
+  ButtonDelete,
+  ButtonAddItem,
+  ButtonBatchSave,
+  ButtonSecondary,
+  ButtonPrimary,
+  ButtonGrayCancel,
+} from '@/components/ui'
+
+const SCHEDULE_TABLE_COLUMNS = [
+  { key: 'no', label: '번호', width: 48, minWidth: 40, align: 'center' as const },
+  { key: 'dueDate', label: '예정일', width: 150, minWidth: 120, align: 'left' as const },
+  { key: 'title', label: '제목', width: 180, minWidth: 120, align: 'left' as const },
+  { key: 'note', label: '내용', width: 150, minWidth: 100, align: 'left' as const },
+  { key: 'remind', label: '알림여부', width: 80, minWidth: 60, align: 'center' as const },
+  { key: 'updatedBy', label: '수정자', width: 100, minWidth: 80, align: 'left' as const },
+  { key: 'updatedAt', label: '수정일시', width: 120, minWidth: 90, align: 'center' as const },
+  { key: 'action', label: '작업', width: 96, minWidth: 72, align: 'right' as const },
+]
 
 /** 확인/취소를 눌 때까지 열려 있는 날짜·시간 선택기 (팝오버는 body 포탈로 렌더링해 스크롤 방지) */
 function DateTimePicker({
@@ -170,6 +193,8 @@ interface TravelSchedule {
   dueDate: string | null
   note: string | null
   remindEnabled?: boolean
+  updatedBy?: { email: string; name: string | null } | null
+  updatedAt?: string | Date | null
 }
 
 type NewRow = {
@@ -210,7 +235,7 @@ const defaultNewRow = (): NewRow => {
 const inputClass = 'w-full min-w-0 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-400'
 const btnClass = 'inline-flex items-center px-2 py-1 text-xs font-medium rounded border transition-colors'
 
-const DEFAULT_PAGE_SIZE = 10
+const DEFAULT_PAGE_SIZE = 20
 
 interface TravelScheduleTableProps {
   /** 캘린더에서 선택한 날짜(YYYY-MM-DD). 이 날짜가 포함된 일정 행을 강조 */
@@ -221,9 +246,11 @@ interface TravelScheduleTableProps {
   onScheduleChange?: () => void
   /** 제목·내용 검색어 (캘린더 건수와 동기화) */
   searchQuery?: string
+  /** 초기 로딩 완료 시 호출 (공통 스피너용) */
+  onLoaded?: () => void
 }
 
-export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeProp, onScheduleChange, searchQuery = '' }: TravelScheduleTableProps = {}) {
+export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeProp, onScheduleChange, searchQuery = '', onLoaded }: TravelScheduleTableProps = {}) {
   const { isAuthenticated } = useWeddingStore()
   const pageSize = pageSizeProp ?? DEFAULT_PAGE_SIZE
   const [items, setItems] = useState<TravelSchedule[]>([])
@@ -260,6 +287,10 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
       fetchItems()
     }
   }, [isAuthenticated])
+
+  useEffect(() => {
+    if (!loading) onLoaded?.()
+  }, [loading, onLoaded])
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize))
   const paginatedItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -400,13 +431,7 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
   }
 
   if (loading) {
-    return (
-      <div className="bg-white rounded shadow p-6 border border-gray-200">
-        <div className="flex justify-center py-10">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </div>
-    )
+    return null
   }
 
   return (
@@ -419,11 +444,11 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
       {/* 모바일: 등록 버튼 위, 그 아래 목록 */}
       <div className="md:hidden space-y-3">
         <div className="flex flex-wrap gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
-          <button type="button" onClick={handleAddNewItem} className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white">+ 일정 등록</button>
+          <ButtonAddItem onClick={handleAddNewItem} className="px-2.5 py-1.5 rounded-lg">일정 등록</ButtonAddItem>
           {newItems.length > 0 && (
             <>
-              <button type="button" onClick={handleBatchSave} className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white">일괄 저장 ({newItems.length})</button>
-              <button type="button" onClick={() => setNewItems([])} className="px-2.5 py-1.5 text-xs font-medium rounded bg-gray-200 text-gray-700">취소</button>
+              <ButtonBatchSave onClick={handleBatchSave}>일괄 저장 ({newItems.length}개)</ButtonBatchSave>
+              <ButtonSecondary onClick={() => setNewItems([])} className="px-2.5 py-1.5">취소</ButtonSecondary>
             </>
           )}
         </div>
@@ -449,8 +474,8 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
                   <span className="text-xs text-gray-600">알림</span>
                 </label>
                 <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={handleSaveEdit} className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg">저장</button>
-                  <button type="button" onClick={handleCancelEdit} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg">취소</button>
+                  <ButtonPrimary onClick={handleSaveEdit} className="px-3 py-2 text-sm rounded-lg">저장</ButtonPrimary>
+                  <ButtonGrayCancel onClick={handleCancelEdit} className="px-3 py-2 text-sm rounded-lg">취소</ButtonGrayCancel>
                 </div>
               </div>
             )
@@ -472,8 +497,8 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
               <div className="flex items-center justify-between gap-2 mt-1">
                 <p className="text-xs text-gray-500 truncate min-w-0 flex-1">{item.note || '—'}</p>
                 <div className="flex shrink-0 gap-1">
-                  <button type="button" onClick={() => handleEdit(item)} className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded">수정</button>
-                  <button type="button" onClick={() => handleDelete(item.id)} className="px-2 py-1 text-xs font-medium text-red-600 bg-red-50 rounded">삭제</button>
+                  <ButtonEdit onClick={() => handleEdit(item)} className="px-2 py-1 bg-blue-50 rounded" />
+                  <ButtonDelete onClick={() => handleDelete(item.id)} className="px-2 py-1 bg-red-50 rounded" />
                 </div>
               </div>
             </div>
@@ -492,8 +517,8 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
               <span className="text-xs text-gray-600">알림</span>
             </label>
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={() => handleSaveSingleNew(idx)} className="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg">저장</button>
-              <button type="button" onClick={() => handleCancelNew(idx)} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg">취소</button>
+              <ButtonPrimary onClick={() => handleSaveSingleNew(idx)} className="px-3 py-2 text-sm rounded-lg bg-green-600 hover:bg-green-700">저장</ButtonPrimary>
+              <ButtonGrayCancel onClick={() => handleCancelNew(idx)} className="px-3 py-2 text-sm rounded-lg">취소</ButtonGrayCancel>
             </div>
           </div>
         ))}
@@ -504,185 +529,160 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
         )}
       </div>
 
-      {/* 데스크톱: 테이블 */}
+      {/* 데스크톱: 테이블 (컬럼 리사이즈 가능) */}
       <div className="hidden md:block bg-white rounded shadow overflow-hidden border border-slate-200">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-slate-100 border-b-2 border-slate-300 text-slate-700">
-              <tr>
-                <th className="px-2 py-2 text-left text-xs font-semibold min-w-[150px]">예정일</th>
-                <th className="px-2 py-2 text-left text-xs font-semibold">제목</th>
-                <th className="px-2 py-2 text-left text-xs font-semibold min-w-[120px]">내용</th>
-                <th className="px-2 py-2 text-center text-xs font-semibold w-20">알림여부</th>
-                <th className="w-24 px-2 py-2 text-right text-xs font-semibold">작업</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {/* 맨 위: 일정 추가 / 일괄 저장 / 모두 취소 */}
-              <tr className="bg-blue-50 border-b-2 border-blue-200">
-                <td colSpan={4} className="px-2 py-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={handleAddNewItem}
-                      className={cn(
-                        'inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded',
-                        'bg-blue-600 text-white hover:bg-blue-700 border border-blue-600'
-                      )}
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      일정 추가
-                    </button>
-                    {newItems.length > 0 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={handleBatchSave}
-                          className="inline-flex items-center px-2 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded border border-green-600"
-                        >
-                          일괄 저장 ({newItems.length}개)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewItems([])}
-                          className="inline-flex items-center px-2 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded"
-                        >
-                          모두 취소
-                        </button>
-                      </>
-                    )}
-                  </div>
+        <DataTable
+          columns={SCHEDULE_TABLE_COLUMNS}
+          storageKey="schedule-table"
+          minTableWidth={700}
+        >
+          <tr className="bg-blue-50 border-b-2 border-blue-200">
+            <td className="px-2 py-2 text-center text-xs text-slate-500">-</td>
+            <td colSpan={5} className="px-2 py-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <ButtonAddItem onClick={handleAddNewItem}>일정 추가</ButtonAddItem>
+                {newItems.length > 0 && (
+                  <>
+                    <ButtonBatchSave onClick={handleBatchSave}>일괄 저장 ({newItems.length}개)</ButtonBatchSave>
+                    <ButtonSecondary onClick={() => setNewItems([])}>모두 취소</ButtonSecondary>
+                  </>
+                )}
+              </div>
+            </td>
+            <td className="px-2 py-2" />
+            <td className="px-2 py-2" />
+          </tr>
+
+          {newItems.map((row, idx) => (
+            <tr key={`new-${idx}`} className="bg-amber-100/90 border-l-2 border-l-amber-500 border-b border-amber-200">
+              <td className="px-2 py-1.5 text-center text-xs text-slate-500">-</td>
+              <td className="px-2 py-1.5">
+                <DateTimePicker value={row.dueDate} onChange={(v) => handleUpdateNewItem(idx, { dueDate: v })} />
+              </td>
+              <td className="px-2 py-1.5">
+                <input
+                  type="text"
+                  value={row.title}
+                  onChange={(e) => handleUpdateNewItem(idx, { title: e.target.value })}
+                  placeholder="제목"
+                  className={inputClass}
+                />
+              </td>
+              <td className="px-2 py-1.5">
+                <input
+                  type="text"
+                  value={row.note}
+                  onChange={(e) => handleUpdateNewItem(idx, { note: e.target.value })}
+                  placeholder="내용"
+                  className={inputClass}
+                />
+              </td>
+              <td className="px-2 py-1.5 text-center">
+                <label className="inline-flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={row.remindEnabled}
+                    onChange={(e) => handleUpdateNewItem(idx, { remindEnabled: e.target.checked })}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs text-gray-600">알림</span>
+                </label>
+              </td>
+              <td className="px-2 py-1.5" />
+              <td className="px-2 py-1.5" />
+              <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                <ButtonSave onClick={() => handleSaveSingleNew(idx)} className="mr-1 bg-green-600 text-white hover:bg-green-700 hover:text-white border-0" />
+                <ButtonGrayCancel onClick={() => handleCancelNew(idx)} className="py-1" />
+              </td>
+            </tr>
+          ))}
+
+          {paginatedItems.map((item, index) =>
+            editingId === item.id ? (
+              <tr key={item.id} className="bg-blue-100/90 border-l-2 border-l-blue-500 border-b border-blue-200">
+                <td className="px-2 py-1.5 text-center text-xs text-slate-500">-</td>
+                <td className="px-2 py-1.5">
+                  <DateTimePicker
+                    value={editFormData.dueDate}
+                    onChange={(v) => setEditFormData((p) => ({ ...p, dueDate: v }))}
+                  />
                 </td>
-                <td className="px-2 py-2" />
+                <td className="px-2 py-1.5">
+                  <input
+                    type="text"
+                    value={editFormData.title}
+                    onChange={(e) => setEditFormData((p) => ({ ...p, title: e.target.value }))}
+                    placeholder="제목"
+                    className={inputClass}
+                  />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input
+                    type="text"
+                    value={editFormData.note}
+                    onChange={(e) => setEditFormData((p) => ({ ...p, note: e.target.value }))}
+                    placeholder="내용"
+                    className={inputClass}
+                  />
+                </td>
+                <td className="px-2 py-1.5 text-center">
+                  <label className="inline-flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.remindEnabled}
+                      onChange={(e) => setEditFormData((p) => ({ ...p, remindEnabled: e.target.checked }))}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-xs text-gray-600">알림</span>
+                  </label>
+                </td>
+                <td className="px-2 py-1.5" />
+                <td className="px-2 py-1.5" />
+                <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                  <ButtonPrimary onClick={handleSaveEdit} className="mr-1 py-1">저장</ButtonPrimary>
+                  <ButtonGrayCancel onClick={handleCancelEdit} className="py-1">취소</ButtonGrayCancel>
+                </td>
               </tr>
-
-              {/* 새로 추가 중인 행들 (버튼 바로 아래) - 인라인 JSX로 포커스 유지 */}
-              {newItems.map((row, idx) => (
-                <tr key={`new-${idx}`} className="bg-amber-100/90 border-l-2 border-l-amber-500 border-b border-amber-200">
-                  <td className="px-2 py-1.5">
-                    <DateTimePicker value={row.dueDate} onChange={(v) => handleUpdateNewItem(idx, { dueDate: v })} />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <input
-                      type="text"
-                      value={row.title}
-                      onChange={(e) => handleUpdateNewItem(idx, { title: e.target.value })}
-                      placeholder="제목"
-                      className={inputClass}
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <input
-                      type="text"
-                      value={row.note}
-                      onChange={(e) => handleUpdateNewItem(idx, { note: e.target.value })}
-                      placeholder="내용"
-                      className={inputClass}
-                    />
-                  </td>
-                  <td className="px-2 py-1.5 text-center">
-                    <label className="inline-flex items-center gap-1 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={row.remindEnabled}
-                        onChange={(e) => handleUpdateNewItem(idx, { remindEnabled: e.target.checked })}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-xs text-gray-600">알림</span>
-                    </label>
-                  </td>
-                  <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => handleSaveSingleNew(idx)} className={cn(btnClass, 'text-white bg-green-600 hover:bg-green-700 border-green-600 mr-1')}>저장</button>
-                    <button type="button" onClick={() => handleCancelNew(idx)} className={cn(btnClass, 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50')}>취소</button>
-                  </td>
-                </tr>
-              ))}
-
-              {/* 기존 일정 행 (페이지네이션 적용) */}
-              {paginatedItems.map((item, index) =>
-                editingId === item.id ? (
-                  <tr key={item.id} className="bg-blue-100/90 border-l-2 border-l-blue-500 border-b border-blue-200">
-                    <td className="px-2 py-1.5">
-                      <DateTimePicker
-                        value={editFormData.dueDate}
-                        onChange={(v) => setEditFormData((p) => ({ ...p, dueDate: v }))}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="text"
-                        value={editFormData.title}
-                        onChange={(e) => setEditFormData((p) => ({ ...p, title: e.target.value }))}
-                        placeholder="제목"
-                        className={inputClass}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="text"
-                        value={editFormData.note}
-                        onChange={(e) => setEditFormData((p) => ({ ...p, note: e.target.value }))}
-                        placeholder="내용"
-                        className={inputClass}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5 text-center">
-                      <label className="inline-flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={editFormData.remindEnabled}
-                          onChange={(e) => setEditFormData((p) => ({ ...p, remindEnabled: e.target.checked }))}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-xs text-gray-600">알림</span>
-                      </label>
-                    </td>
+            ) : (
+              (() => {
+                const dueStr = item.dueDate ? item.dueDate.slice(0, 10) : ''
+                const isHighlighted = !!highlightDate && dueStr === highlightDate
+                return (
+                  <tr
+                    key={item.id}
+                    className={cn(
+                      (index + (currentPage - 1) * pageSize) % 2 === 0 ? 'bg-white' : 'bg-slate-50/60',
+                      'hover:bg-blue-50/70',
+                      isHighlighted && 'ring-2 ring-amber-400 ring-inset bg-amber-50/80'
+                    )}
+                  >
+                    <td className="px-2 py-1.5 text-center text-xs text-gray-600">{index + (currentPage - 1) * pageSize + 1}</td>
+                    <td className="px-2 py-1.5 text-xs text-gray-600 whitespace-nowrap">{item.dueDate ? formatDateTime(item.dueDate) : '-'}</td>
+                    <td className="px-2 py-1.5 text-xs font-medium text-gray-900">{item.title}</td>
+                    <td className="px-2 py-1.5 text-xs text-gray-500 max-w-[200px] truncate" title={item.note || ''}>{item.note || '-'}</td>
+                    <td className="px-2 py-1.5 text-center text-xs text-gray-600">{item.remindEnabled !== false ? 'O' : '-'}</td>
+                    <td className="px-2 py-1.5 text-xs text-gray-500 truncate" title={item.updatedBy?.email}>{item.updatedBy ? (item.updatedBy.name || item.updatedBy.email) : '-'}</td>
+                    <td className="px-2 py-1.5 text-center text-xs text-gray-500 whitespace-nowrap">{item.updatedAt ? new Date(item.updatedAt).toLocaleString('ko-KR') : '-'}</td>
                     <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                      <button type="button" onClick={handleSaveEdit} className={cn(btnClass, 'text-white bg-blue-600 hover:bg-blue-700 border-blue-600 mr-1')}>저장</button>
-                      <button type="button" onClick={handleCancelEdit} className={cn(btnClass, 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50')}>취소</button>
+                      <ButtonEdit onClick={() => handleEdit(item)} className="mr-0.5 px-1.5 py-1" />
+                      <ButtonDelete onClick={() => handleDelete(item.id)} className="px-1.5 py-1" />
                     </td>
                   </tr>
-                ) : (
-                  (() => {
-                    const dueStr = item.dueDate ? item.dueDate.slice(0, 10) : ''
-                    const isHighlighted = !!highlightDate && dueStr === highlightDate
-                    return (
-                      <tr
-                        key={item.id}
-                        className={cn(
-                          (index + (currentPage - 1) * pageSize) % 2 === 0 ? 'bg-white' : 'bg-slate-50/60',
-                          'hover:bg-blue-50/70',
-                          isHighlighted && 'ring-2 ring-amber-400 ring-inset bg-amber-50/80'
-                        )}
-                      >
-                        <td className="px-2 py-1.5 text-xs text-gray-600 whitespace-nowrap">{item.dueDate ? formatDateTime(item.dueDate) : '-'}</td>
-                        <td className="px-2 py-1.5 text-xs font-medium text-gray-900">{item.title}</td>
-                        <td className="px-2 py-1.5 text-xs text-gray-500 max-w-[200px] truncate" title={item.note || ''}>{item.note || '-'}</td>
-                        <td className="px-2 py-1.5 text-center text-xs text-gray-600">{item.remindEnabled !== false ? 'O' : '-'}</td>
-                        <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                          <button type="button" onClick={() => handleEdit(item)} className="px-1.5 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded mr-0.5">수정</button>
-                          <button type="button" onClick={() => handleDelete(item.id)} className="px-1.5 py-1 text-xs text-red-600 hover:bg-red-50 rounded">삭제</button>
-                        </td>
-                      </tr>
-                    )
-                  })()
                 )
-              )}
+              })()
+            )
+          )}
 
-              {filteredItems.length === 0 && newItems.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-2 py-8 text-center text-xs text-gray-500">
-                    {searchTrim
-                      ? '검색 결과가 없습니다. 다른 검색어를 입력해 보세요.'
-                      : "등록된 일정이 없습니다. 위 '일정 추가'로 새 행을 추가하세요."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+          {filteredItems.length === 0 && newItems.length === 0 && (
+            <tr>
+              <td colSpan={8} className="px-2 py-8 text-center text-xs text-gray-500">
+                {searchTrim
+                  ? '검색 결과가 없습니다. 다른 검색어를 입력해 보세요.'
+                  : "등록된 일정이 없습니다. 위 '일정 추가'로 새 행을 추가하세요."}
+              </td>
+            </tr>
+          )}
+        </DataTable>
       </div>
 
       {filteredItems.length > 0 && (

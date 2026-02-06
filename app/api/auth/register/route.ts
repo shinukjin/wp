@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/utils/password'
-import { generateToken } from '@/lib/utils/jwt'
 import logger from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
@@ -49,48 +48,28 @@ export async function POST(request: NextRequest) {
     // 비밀번호 해싱
     const hashedPassword = await hashPassword(password)
 
-    // 사용자 생성
+    // 사용자 생성 (승인 대기 상태)
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name: name || null,
         isDeleted: false,
+        approved: false,
       },
     })
 
-    // JWT 토큰 생성
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-    })
+    logger.info(`New user registered (pending approval): ${user.email}`)
 
-    logger.info(`New user registered: ${user.email}`)
-
-    // 응답 생성 및 쿠키 설정
-    const response = NextResponse.json(
+    // 승인 전에는 로그인 불가 — 토큰/쿠키 없이 성공만 반환
+    return NextResponse.json(
       {
         success: true,
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        },
+        message: '회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.',
+        pendingApproval: true,
       },
       { status: 201 }
     )
-
-    // 쿠키에 토큰 저장 (서버 컴포넌트에서 인증 상태 확인용)
-    response.cookies.set('auth-token', token, {
-      httpOnly: false, // 클라이언트에서도 접근 가능 (필요시 true로 변경)
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7일
-      path: '/',
-    })
-
-    return response
   } catch (error: any) {
     logger.error('Registration error:', error)
 

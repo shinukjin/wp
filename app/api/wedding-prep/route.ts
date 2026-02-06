@@ -89,13 +89,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 데이터 변경됨 또는 첫 요청 - 전체 데이터 조회
+    // 데이터 변경됨 또는 첫 요청 - 전체 데이터 조회 (수정자 포함)
     const items = await prisma.weddingPrep.findMany({
       where,
       orderBy: [
         { priority: 'desc' },
         { createdAt: 'desc' },
       ],
+      include: {
+        updatedBy: { select: { email: true, name: true } },
+      },
     })
 
     // 총 금액 계산
@@ -164,6 +167,7 @@ export async function POST(request: NextRequest) {
     const item = await prisma.weddingPrep.create({
       data: {
         userId: user.userId,
+        updatedById: user.userId,
         category,
         subCategory: subCategory || null,
         content,
@@ -172,6 +176,9 @@ export async function POST(request: NextRequest) {
         priority: priority || 0,
         dueDate: dueDate ? new Date(dueDate) : null,
         note: note || null,
+      },
+      include: {
+        updatedBy: { select: { email: true, name: true } },
       },
     })
 

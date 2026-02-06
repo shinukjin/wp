@@ -31,6 +31,7 @@ export default function RegisterForm() {
     name: '',
   })
   const [errors, setErrors] = useState<RegisterFormErrors>({})
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const validateForm = (): boolean => {
@@ -78,12 +79,21 @@ export default function RegisterForm() {
         name: formData.name || undefined,
       })
 
+      const { pendingApproval, message } = response.data
+
+      // 승인 대기 시 로그인 없이 성공 메시지 후 로그인 페이지로 이동
+      if (pendingApproval) {
+        setErrors({})
+        setSuccessMessage(message || '회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.')
+        setTimeout(() => {
+          router.push('/login')
+          router.refresh()
+        }, 2500)
+        return
+      }
+
       const { token, user } = response.data
-
-      // Zustand 스토어에 로그인 정보 저장 (자동 로그인)
       login(user, token)
-
-      // 홈으로 리다이렉트
       router.push('/')
       router.refresh()
     } catch (error: any) {
@@ -106,6 +116,13 @@ export default function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* 승인 대기 성공 메시지 */}
+      {successMessage && (
+        <div className="rounded-lg bg-green-50 border border-green-200 p-4">
+          <p className="text-sm text-green-800">{successMessage}</p>
+          <p className="mt-1 text-xs text-green-600">잠시 후 로그인 페이지로 이동합니다.</p>
+        </div>
+      )}
       {/* 일반 에러 메시지 */}
       {errors.general && (
         <div className="rounded-lg bg-red-50 border border-red-200 p-4">

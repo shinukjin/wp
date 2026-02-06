@@ -85,12 +85,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 데이터 변경됨 또는 첫 요청 - 전체 데이터 조회
+    // 데이터 변경됨 또는 첫 요청 - 전체 데이터 조회 (수정자 포함)
     const items = await prisma.realEstate.findMany({
       where,
       orderBy: [
         { createdAt: 'desc' },
       ],
+      include: {
+        updatedBy: { select: { email: true, name: true } },
+      },
     })
 
     // If-None-Match가 있었지만 변경된 경우, 동일한 방식으로 ETag 재생성
@@ -158,6 +161,7 @@ export async function POST(request: NextRequest) {
     const item = await prisma.realEstate.create({
       data: {
         userId: user.userId,
+        updatedById: user.userId,
         category,
         region,
         rooms: rooms || 0,

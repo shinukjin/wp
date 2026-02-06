@@ -1,7 +1,5 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import HeaderWrapper from '@/components/layout/HeaderWrapper'
-import Footer from '@/components/layout/Footer'
 import ThemeSync from '@/components/layout/ThemeSync'
 import { StoreProvider } from '@/lib/providers/StoreProvider'
 import './globals.css'
@@ -36,11 +34,7 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen overflow-x-hidden`}>
         <StoreProvider>
           <ThemeSync />
-          <div className="flex min-h-screen flex-col min-w-0 w-full max-w-screen-2xl mx-auto">
-            <HeaderWrapper />
-            <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
-            <Footer />
-          </div>
+          {children}
         </StoreProvider>
       </body>
     </html>

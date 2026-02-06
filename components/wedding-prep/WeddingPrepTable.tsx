@@ -5,8 +5,41 @@ import { useWeddingStore } from '@/lib/store/useWeddingStore'
 import apiClient from '@/lib/api/client'
 import { cn } from '@/lib/utils/cn'
 import WeddingPrepFilters from './WeddingPrepFilters'
-import { CollapsibleSection } from '@/components/ui'
+import {
+  CollapsibleSection,
+  DataTable,
+  Pagination,
+  LoadingScreen,
+  ButtonSave,
+  ButtonCancel,
+  ButtonEdit,
+  ButtonDelete,
+  ButtonAddItem,
+  ButtonExportExcel,
+  ButtonBatchSave,
+  ButtonSecondary,
+  ButtonEditBudget,
+  ButtonPrimary,
+  ButtonGrayCancel,
+} from '@/components/ui'
 import * as XLSX from 'xlsx'
+
+const PAGE_SIZE = 20
+
+const WEDDING_PREP_COLUMNS = [
+  { key: 'no', label: '번호', width: 48, minWidth: 40, align: 'center' as const },
+  { key: 'category', label: '구분', width: 96, minWidth: 60, align: 'left' as const },
+  { key: 'subCategory', label: '상세구분', width: 112, minWidth: 80, align: 'left' as const },
+  { key: 'content', label: '내용', width: 180, minWidth: 120, align: 'left' as const },
+  { key: 'amount', label: '금액', width: 120, minWidth: 80, align: 'right' as const },
+  { key: 'status', label: '상태', width: 80, minWidth: 60, align: 'center' as const },
+  { key: 'priority', label: '우선순위', width: 88, minWidth: 60, align: 'center' as const },
+  { key: 'dueDate', label: '예정일', width: 100, minWidth: 80, align: 'center' as const },
+  { key: 'note', label: '비고', width: 100, minWidth: 80, align: 'left' as const },
+  { key: 'updatedBy', label: '수정자', width: 100, minWidth: 60, align: 'left' as const },
+  { key: 'updatedAt', label: '수정일시', width: 120, minWidth: 90, align: 'center' as const },
+  { key: 'action', label: '작업', width: 112, minWidth: 80, align: 'right' as const },
+]
 
 interface WeddingPrep {
   id: string
@@ -19,6 +52,8 @@ interface WeddingPrep {
   dueDate: Date | null
   completedAt: Date | null
   note: string | null
+  updatedBy?: { email: string; name: string | null } | null
+  updatedAt?: string | Date | null
 }
 
 export default function WeddingPrepTable() {
@@ -38,11 +73,22 @@ export default function WeddingPrepTable() {
   const [editingBudget, setEditingBudget] = useState(false)
   const [tempBudget, setTempBudget] = useState('')
   const [budgetLoading, setBudgetLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // 현재 예산 조회
-  const fetchBudget = async () => {
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const paginatedItems = useMemo(
+    () => items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [items, currentPage]
+  )
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(Math.max(1, totalPages))
+  }, [currentPage, totalPages])
+
+  // 현재 예산 조회 (silent: true면 로딩 표시 없이 백그라운드 갱신)
+  const fetchBudget = async (silent = false) => {
     try {
-      setBudgetLoading(true)
+      if (!silent) setBudgetLoading(true)
       const response = await apiClient.get('/user/budget')
       setCurrentBudget(response.data.budget || 0)
     } catch (error) {
@@ -65,10 +111,10 @@ export default function WeddingPrepTable() {
     }
   }
 
-  // 항목 목록 조회
-  const fetchItems = async () => {
+  // 항목 목록 조회 (silent: true면 로딩 표시 없이 백그라운드 갱신 - 깜빡임 방지)
+  const fetchItems = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const params = new URLSearchParams()
       if (filters.category) params.append('category', filters.category)
       if (filters.status) params.append('status', filters.status)
@@ -105,43 +151,73 @@ export default function WeddingPrepTable() {
     }
   }
 
+  // 검색조건(필터) 변경 시 로딩 화면 없이 백그라운드 갱신, 최초 진입 시에만 로딩 표시
+  const hasInitialLoadedRef = useRef(false)
   useEffect(() => {
-    if (isAuthenticated) {
-      // 두 데이터를 병렬로 로드
+    if (!isAuthenticated) return
+    if (!hasInitialLoadedRef.current) {
+      hasInitialLoadedRef.current = true
       Promise.all([fetchItems(), fetchBudget()]).catch((error) => {
+        console.error('Failed to fetch data:', error)
+      })
+    } else {
+      Promise.all([fetchItems(true), fetchBudget(true)]).catch((error) => {
         console.error('Failed to fetch data:', error)
       })
     }
   }, [isAuthenticated, filters])
 
-  // 항목 삭제
+  // 항목 삭제 (로컬 state만 갱신해 재렌더/깜빡임 방지)
   const handleDelete = async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
     try {
       await apiClient.delete(`/wedding-prep/${id}`)
-      fetchItems()
+      setItems((prev) => {
+        const next = prev.filter((i) => i.id !== id)
+        setTotalAmount(next.reduce((s, i) => s + i.amount, 0))
+        return next
+      })
+      setEditingId(null)
     } catch (error: any) {
       alert(error.response?.data?.error || '삭제 중 오류가 발생했습니다.')
     }
   }
 
-  // 항목 저장 (인라인 편집 - 단일)
+  // 항목 저장 (인라인 편집 - 단일). 수정은 로컬 state만 갱신해 깜빡임 방지
   const handleSave = async (item: Partial<WeddingPrep> & { id?: string }, newItemIndex?: number) => {
     try {
       if (item.id) {
-        // 수정
+        // 수정: API만 호출하고 로컬 state만 갱신 (재조회 없음)
         await apiClient.put(`/wedding-prep/${item.id}`, item)
         setEditingId(null)
-      } else {
-        // 추가 (단일)
-        await apiClient.post('/wedding-prep', item)
-        // 임시 항목 배열에서 제거
-        if (typeof newItemIndex === 'number') {
-          setNewItems(prev => prev.filter((_, idx) => idx !== newItemIndex))
+        const existing = items.find((i) => i.id === item.id)
+        if (!existing) return
+        const updated: WeddingPrep = {
+          ...existing,
+          ...item,
+          amount: item.amount ?? existing.amount,
+          category: item.category ?? existing.category,
+          subCategory: item.subCategory ?? existing.subCategory,
+          content: item.content ?? existing.content,
+          status: item.status ?? existing.status,
+          priority: item.priority ?? existing.priority,
+          dueDate: item.dueDate !== undefined ? item.dueDate : existing.dueDate,
+          note: item.note !== undefined ? item.note : existing.note,
         }
+        setItems((prev) => {
+          const next = prev.map((i) => (i.id === item.id ? updated : i))
+          setTotalAmount(next.reduce((s, i) => s + i.amount, 0))
+          return next
+        })
+      } else {
+        // 추가 (단일): 서버에 저장 후 목록만 백그라운드 갱신
+        await apiClient.post('/wedding-prep', item)
+        if (typeof newItemIndex === 'number') {
+          setNewItems((prev) => prev.filter((_, idx) => idx !== newItemIndex))
+        }
+        fetchItems(true)
       }
-      fetchItems()
     } catch (error: any) {
       alert(error.response?.data?.error || '저장 중 오류가 발생했습니다.')
     }
@@ -167,7 +243,7 @@ export default function WeddingPrepTable() {
       )
       
       setNewItems([])
-      fetchItems()
+      fetchItems(true)
       alert(`${validItems.length}개의 항목이 저장되었습니다.`)
     } catch (error: any) {
       alert(error.response?.data?.error || '저장 중 오류가 발생했습니다.')
@@ -272,19 +348,21 @@ export default function WeddingPrepTable() {
     }
   }
 
-  // 인라인 편집 행 컴포넌트
+  // 인라인 편집 행 컴포넌트 (isNewRow: 새 항목 추가 행 스타일)
   const InlineEditRow = ({
     item,
     onSave,
     onCancel,
     onChange,
     showSaveButton = true,
+    isNewRow = false,
   }: {
     item?: Partial<WeddingPrep> | WeddingPrep
     onSave?: (data: Partial<WeddingPrep>) => void
     onCancel?: () => void
     onChange?: (data: Partial<WeddingPrep>) => void
     showSaveButton?: boolean
+    isNewRow?: boolean
   }) => {
     // useRef로 초기값을 고정 (컴포넌트가 재생성되어도 유지)
     const initialFormDataRef = useRef({
@@ -336,8 +414,8 @@ export default function WeddingPrepTable() {
       })
     }, [])
 
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault()
+    const handleSubmit = (e?: React.FormEvent) => {
+      e?.preventDefault()
       if (!formData.category || !formData.content) {
         alert('구분과 내용은 필수입니다.')
         return
@@ -366,8 +444,10 @@ export default function WeddingPrepTable() {
     }
 
     return (
-      <tr className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-200">
-        <td className="px-3 py-2 text-center text-xs text-gray-500">-</td>
+      <tr className={cn(
+        isNewRow ? 'bg-amber-100/90 border-l-2 border-l-amber-500 border-b border-amber-200' : 'bg-blue-50/80 border-b-2 border-blue-200 border-l-2 border-l-blue-400'
+      )}>
+        <td className="px-2 py-1.5 text-center text-xs text-slate-500 w-12">-</td>
         <td className="px-3 py-2">
           <select
             value={formData.category}
@@ -457,23 +537,13 @@ export default function WeddingPrepTable() {
             className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </td>
-        <td className="px-3 py-2 text-center">
+        <td className="px-2 py-1.5 text-center text-xs text-slate-400">-</td>
+        <td className="px-2 py-1.5 text-center text-xs text-slate-400">-</td>
+        <td className="px-2 py-1.5 text-center whitespace-nowrap">
           {showSaveButton && onSave && (
-            <button
-              onClick={handleSubmit}
-                className="px-2 py-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200 mr-2 text-xs font-medium shadow-sm hover:shadow"
-            >
-              저장
-            </button>
+            <ButtonSave onClick={() => handleSubmit()} className="mr-1" />
           )}
-          {onCancel && (
-            <button 
-              onClick={onCancel} 
-              className="px-2 py-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 text-xs font-medium shadow-sm hover:shadow"
-            >
-              취소
-            </button>
-          )}
+          {onCancel && <ButtonCancel onClick={() => onCancel()} />}
         </td>
       </tr>
     )
@@ -492,7 +562,7 @@ export default function WeddingPrepTable() {
     }
 
     return (
-      <tr className="hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50/30 transition-all duration-200 border-b border-gray-100">
+      <tr className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
         <td className="px-3 py-3 text-center text-xs text-gray-900">{index + 1}</td>
         <td className="px-3 py-3 whitespace-nowrap text-xs font-medium text-gray-900">
           {item.category}
@@ -526,23 +596,19 @@ export default function WeddingPrepTable() {
         <td className="px-3 py-3 text-center whitespace-nowrap text-xs text-gray-600">
           {item.dueDate ? new Date(item.dueDate).toLocaleDateString('ko-KR') : '-'}
         </td>
-        <td className="px-4 py-3 text-xs text-gray-600 truncate" title={item.note || ''}>
-          {item.note || '-'}
-        </td>
-        <td className="px-3 py-3 text-center whitespace-nowrap text-xs font-medium">
-          <button
-            onClick={() => handleInlineEdit(item)}
-            className="px-2 py-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors mr-2"
-          >
-            수정
-          </button>
-          <button
-            onClick={() => handleDelete(item.id)}
-            className="px-2 py-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-          >
-            삭제
-          </button>
-        </td>
+                <td className="px-4 py-3 text-xs text-gray-600 truncate" title={item.note || ''}>
+                  {item.note || '-'}
+                </td>
+                <td className="px-3 py-3 text-xs text-gray-600 truncate" title={item.updatedBy?.email}>
+                  {item.updatedBy ? (item.updatedBy.name || item.updatedBy.email) : '-'}
+                </td>
+                <td className="px-3 py-3 text-center whitespace-nowrap text-xs text-gray-500">
+                  {item.updatedAt ? new Date(item.updatedAt).toLocaleString('ko-KR') : '-'}
+                </td>
+                <td className="px-3 py-3 text-center whitespace-nowrap text-xs font-medium">
+                  <ButtonEdit onClick={() => handleInlineEdit(item)} className="mr-2" />
+                  <ButtonDelete onClick={() => handleDelete(item.id)} />
+                </td>
       </tr>
     )
   }
@@ -633,8 +699,8 @@ export default function WeddingPrepTable() {
         <label className="block text-xs font-medium text-gray-600">비고</label>
         <input type="text" value={form.note} onChange={(e) => setForm(f => ({ ...f, note: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" placeholder="비고" />
         <div className="flex gap-2 pt-2">
-          <button type="button" onClick={handleSubmit} className="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg">저장</button>
-          <button type="button" onClick={onCancel} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg">취소</button>
+          <ButtonPrimary onClick={handleSubmit} className="px-3 py-2 text-sm rounded-lg">저장</ButtonPrimary>
+          <ButtonGrayCancel onClick={onCancel} className="px-3 py-2 text-sm rounded-lg">취소</ButtonGrayCancel>
         </div>
       </div>
     )
@@ -713,8 +779,8 @@ export default function WeddingPrepTable() {
         <label className="block text-xs font-medium text-gray-600">비고</label>
         <input type="text" value={form.note} onChange={(e) => setForm(f => ({ ...f, note: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg" placeholder="비고" />
         <div className="flex gap-2 pt-2">
-          <button type="button" onClick={handleSubmit} className="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg">저장</button>
-          <button type="button" onClick={onCancel} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg">취소</button>
+          <ButtonPrimary onClick={handleSubmit} className="px-3 py-2 text-sm rounded-lg">저장</ButtonPrimary>
+          <ButtonGrayCancel onClick={onCancel} className="px-3 py-2 text-sm rounded-lg">취소</ButtonGrayCancel>
         </div>
       </div>
     )
@@ -728,21 +794,18 @@ export default function WeddingPrepTable() {
     )
   }
 
-  // 전체 데이터가 로드될 때까지 로딩 화면 표시
+  // 전체 데이터가 로드될 때까지 공통 로딩 화면
   if (loading || budgetLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-gray-600">로딩 중...</div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   return (
     <div className="space-y-4">
-      {/* 현재 예산 표시 (상단) */}
-      <CollapsibleSection title="현재 예산" minimal compactDesktop>
+      {/* 현재 예산 · 총 사용 금액 · 잔액 (상단 요약) */}
+      <CollapsibleSection title="예산 요약" minimal compactDesktop>
       <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200/50">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center gap-6 md:gap-8">
+          {/* 현재 예산 */}
           <div className="flex items-center gap-3">
             <span className="text-xs font-medium text-gray-600">현재 예산</span>
             {editingBudget ? (
@@ -755,38 +818,51 @@ export default function WeddingPrepTable() {
                   className="w-32 px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                   autoFocus
                 />
-                <button
-                  onClick={handleBudgetUpdate}
-                  className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  저장
-                </button>
-                <button
+                <ButtonPrimary onClick={handleBudgetUpdate}>저장</ButtonPrimary>
+                <ButtonGrayCancel
                   onClick={() => {
                     setEditingBudget(false)
                     setTempBudget('')
                   }}
-                  className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200 shadow-sm"
                 >
                   취소
-                </button>
+                </ButtonGrayCancel>
               </>
             ) : (
               <>
                 <span className="text-lg font-bold text-gray-900 whitespace-nowrap">
                   {currentBudget.toLocaleString('ko-KR')}원
                 </span>
-                <button
+                <ButtonEditBudget
                   onClick={() => {
                     setEditingBudget(true)
                     setTempBudget(currentBudget.toString())
                   }}
-                  className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 shadow-sm hover:shadow"
                 >
                   수정
-                </button>
+                </ButtonEditBudget>
               </>
             )}
+          </div>
+          {/* 총 사용 금액 */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-600">총 사용 금액</span>
+            <span className="text-lg font-bold text-gray-900 whitespace-nowrap">
+              {totalAmount.toLocaleString('ko-KR')}원
+            </span>
+          </div>
+          {/* 잔액 */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-600">잔액</span>
+            <span
+              className={cn(
+                'text-lg font-bold whitespace-nowrap',
+                budgetDifference >= 0 ? 'text-green-600' : 'text-red-600'
+              )}
+            >
+              {budgetDifference >= 0 ? '+' : ''}
+              {budgetDifference.toLocaleString('ko-KR')}원
+            </span>
           </div>
         </div>
       </div>
@@ -797,16 +873,7 @@ export default function WeddingPrepTable() {
       <div className="bg-white rounded-xl shadow-lg p-2 md:p-3 border border-gray-200/50">
         <div className="flex flex-wrap items-center gap-2">
           <WeddingPrepFilters filters={filters} setFilters={setFilters} categories={categories} />
-          <button
-            onClick={handleExportExcel}
-            className={cn(
-              'px-3 py-1.5 text-sm font-medium rounded-lg',
-              'bg-green-600 text-white hover:bg-green-700',
-              'transition-colors shadow-sm touch-manipulation'
-            )}
-          >
-            엑셀
-          </button>
+          <ButtonExportExcel onClick={handleExportExcel} />
         </div>
       </div>
       </CollapsibleSection>
@@ -821,7 +888,7 @@ export default function WeddingPrepTable() {
           </div>
         ) : (
           <>
-            {items.map((item, index) => (
+            {paginatedItems.map((item, index) => (
               editingId === item.id ? (
                 <MobileEditCard
                   key={item.id}
@@ -845,8 +912,8 @@ export default function WeddingPrepTable() {
                       {item.note ? <p className="text-xs text-gray-500 mt-1 truncate">{item.note}</p> : null}
                     </div>
                     <div className="flex shrink-0 gap-1">
-                      <button type="button" onClick={() => handleInlineEdit(item)} className="px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg">수정</button>
-                      <button type="button" onClick={() => handleDelete(item.id)} className="px-2 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg">삭제</button>
+                      <ButtonEdit onClick={() => handleInlineEdit(item)} className="px-2 py-1.5 bg-blue-50 rounded-lg" />
+                      <ButtonDelete onClick={() => handleDelete(item.id)} className="px-2 py-1.5 bg-red-50 rounded-lg" />
                     </div>
                   </div>
                 </div>
@@ -864,21 +931,13 @@ export default function WeddingPrepTable() {
               />
             ))}
             <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
-              <button type="button" onClick={handleAddNewItem} className="px-3 py-2 text-xs font-medium rounded-lg bg-blue-600 text-white">+ 항목 추가</button>
+              <ButtonAddItem onClick={handleAddNewItem} className="px-3 py-2 rounded-lg" />
               {newItems.length > 0 && (
                 <>
-                  <button type="button" onClick={handleBatchSave} className="px-3 py-2 text-xs font-medium rounded-lg bg-green-600 text-white">일괄 저장 ({newItems.length}개)</button>
-                  <button type="button" onClick={() => setNewItems([])} className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-200 text-gray-700">모두 취소</button>
+                  <ButtonBatchSave onClick={handleBatchSave}>일괄 저장 ({newItems.length}개)</ButtonBatchSave>
+                  <ButtonSecondary onClick={() => setNewItems([])} className="px-3 py-2">모두 취소</ButtonSecondary>
                 </>
               )}
-            </div>
-            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-xl border border-gray-200 text-sm">
-              <span className="text-gray-600">총 사용 금액</span>
-              <span className="font-bold text-gray-900">{totalAmount.toLocaleString('ko-KR')}원</span>
-            </div>
-            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-xl border border-gray-200 text-sm">
-              <span className="text-gray-600">잔액</span>
-              <span className={cn('font-bold', budgetDifference >= 0 ? 'text-green-600' : 'text-red-600')}>{budgetDifference >= 0 ? '+' : ''}{budgetDifference.toLocaleString('ko-KR')}원</span>
             </div>
           </>
         )}
@@ -886,151 +945,96 @@ export default function WeddingPrepTable() {
       </CollapsibleSection>
       </div>
 
-      {/* 데스크톱: 테이블 */}
-      <div className="hidden md:block bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/50">
-        <div className="overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200 table-fixed min-w-[900px]">
-            {/* 테이블 헤더 - 항상 표시 */}
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
-              <tr>
-                <th className="w-12 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  번호
-                </th>
-                <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  구분
-                </th>
-                <th className="w-28 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  상세구분
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  내용
-                </th>
-                <th className="w-40 px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  금액
-                </th>
-                <th className="w-28 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  상태
-                </th>
-                <th className="w-28 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  우선순위
-                </th>
-                <th className="w-36 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  예정일
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  비고
-                </th>
-                <th className="w-28 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  액션
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {/* 데이터 행 */}
-              {items.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-gray-500">
-                    등록된 항목이 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item, index) => (
-                  <TableRow key={item.id} item={item} index={index} />
-                ))
-              )}
-
-              {/* 새 항목 추가 행들 */}
-              {newItems.map((newItem, idx) => (
-                <InlineEditRow
-                  key={`new-${idx}`}
-                  item={newItem}
-                  onCancel={() => handleCancelEdit(idx)}
-                  onSave={(data) => {
-                    // 저장 시에만 부모 상태 업데이트
-                    handleUpdateNewItem(idx, data)
-                    handleSave(data, idx)
-                  }}
-                  showSaveButton={true}
-                />
-              ))}
-
-              {/* 추가 버튼 및 일괄 저장 */}
-              <tr className="hover:bg-gray-50 bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-300">
-                <td colSpan={9} className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleAddNewItem}
-                      className={cn(
-                        'px-3 py-1.5 text-xs font-medium rounded-lg',
-                        'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800',
-                        'transition-all duration-200 shadow-md hover:shadow-lg'
-                      )}
-                    >
-                      + 항목 추가
-                    </button>
-                    {newItems.length > 0 && (
-                      <>
-                        <button
-                          onClick={handleBatchSave}
-                          className={cn(
-                            'px-3 py-1.5 text-xs font-medium rounded-lg',
-                            'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800',
-                            'transition-all duration-200 shadow-md hover:shadow-lg'
-                          )}
-                        >
-                          일괄 저장 ({newItems.length}개)
-                        </button>
-                        <button
-                          onClick={() => setNewItems([])}
-                          className={cn(
-                            'px-3 py-1.5 text-xs font-medium rounded-md',
-                            'bg-gray-200 text-gray-700 hover:bg-gray-300',
-                            'transition-colors'
-                          )}
-                        >
-                          모두 취소
-                        </button>
-                      </>
+      {/* 데스크톱: 테이블 (컬럼 리사이즈 가능) */}
+      <div className="hidden md:block bg-white rounded shadow overflow-hidden border border-slate-200">
+        <DataTable
+          columns={WEDDING_PREP_COLUMNS}
+          storageKey="wedding-prep-table"
+          minTableWidth={900}
+          footer={
+            <tr>
+              <td colSpan={9} className="px-2 py-3" />
+              <td className="px-4 py-3 text-right">
+                <div className="flex flex-col items-end">
+                  <span className="text-xs text-slate-600 mb-0.5">총 사용 금액</span>
+                  <span className="text-base font-bold text-slate-900 whitespace-nowrap">
+                    {totalAmount.toLocaleString('ko-KR')}원
+                  </span>
+                </div>
+              </td>
+              <td className="px-2 py-3" />
+              <td className="px-4 py-3 text-right">
+                <div className="flex flex-col items-end">
+                  <span className="text-xs text-slate-600 mb-0.5">잔액</span>
+                  <span
+                    className={cn(
+                      'text-base font-bold whitespace-nowrap',
+                      budgetDifference >= 0 ? 'text-green-600' : 'text-red-600'
                     )}
-                  </div>
-                </td>
-                <td className="px-3 py-3"></td>
-              </tr>
-            </tbody>
-            {/* 테이블 하단 - 총 사용 금액 및 예산 차이 계산 */}
-            <tfoot className="bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-300">
-              <tr>
-                <td colSpan={7} className="px-4 py-4"></td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs text-gray-600 mb-1">총 사용 금액</span>
-                    <span className="text-lg font-bold text-gray-900 whitespace-nowrap">
-                      {totalAmount.toLocaleString('ko-KR')}원
-                    </span>
-                  </div>
-                </td>
-                <td className="px-8 py-4 text-right">
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs text-gray-600 mb-1">잔액</span>
-                    <span
-                      className={cn(
-                        'text-lg font-bold whitespace-nowrap',
-                        budgetDifference >= 0
-                          ? 'text-green-600'
-                          : 'text-red-600'
-                      )}
-                    >
-                      {budgetDifference >= 0 ? '+' : ''}
-                      {budgetDifference.toLocaleString('ko-KR')}원
-                    </span>
-                  </div>
-                </td>
-                <td className="px-3 py-4"></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+                  >
+                    {budgetDifference >= 0 ? '+' : ''}
+                    {budgetDifference.toLocaleString('ko-KR')}원
+                  </span>
+                </div>
+              </td>
+            </tr>
+          }
+        >
+          {/* 맨 위: 항목 추가 / 일괄 저장 / 모두 취소 */}
+          <tr className="bg-blue-50 border-b-2 border-blue-200">
+            <td className="px-2 py-2 text-center text-xs text-slate-500">-</td>
+            <td colSpan={10} className="px-2 py-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <ButtonAddItem onClick={handleAddNewItem} />
+                {newItems.length > 0 && (
+                  <>
+                    <ButtonBatchSave onClick={handleBatchSave}>일괄 저장 ({newItems.length}개)</ButtonBatchSave>
+                    <ButtonSecondary onClick={() => setNewItems([])}>모두 취소</ButtonSecondary>
+                  </>
+                )}
+              </div>
+            </td>
+            <td className="px-2 py-2" />
+          </tr>
+
+          {newItems.map((newItem, idx) => (
+            <InlineEditRow
+              key={`new-${idx}`}
+              item={newItem}
+              onCancel={() => handleCancelEdit(idx)}
+              onSave={(data) => {
+                handleUpdateNewItem(idx, data)
+                handleSave(data, idx)
+              }}
+              showSaveButton={true}
+              isNewRow
+            />
+          ))}
+
+          {items.length === 0 && newItems.length === 0 ? (
+            <tr>
+              <td colSpan={12} className="px-2 py-8 text-center text-xs text-slate-500">
+                등록된 항목이 없습니다. 위 &apos;항목 추가&apos;로 새 행을 추가하세요.
+              </td>
+            </tr>
+          ) : (
+            paginatedItems.map((item, index) => (
+              <TableRow key={item.id} item={item} index={(currentPage - 1) * PAGE_SIZE + index} />
+            ))
+          )}
+        </DataTable>
       </div>
+
+      {items.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={items.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          className="mt-3"
+        />
+      )}
     </div>
   )
 }

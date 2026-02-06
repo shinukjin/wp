@@ -25,6 +25,9 @@ export async function GET(
         userId: user.userId,
         isDeleted: false,
       },
+      include: {
+        updatedBy: { select: { email: true, name: true } },
+      },
     })
 
     if (!item) {
@@ -151,6 +154,10 @@ export async function PUT(
         images: imageArray,
         url: url !== undefined ? url : existingItem.url,
         note: note !== undefined ? note : existingItem.note,
+        updatedById: user.userId,
+      },
+      include: {
+        updatedBy: { select: { email: true, name: true } },
       },
     })
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Container from '@/components/layout/Container'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import apiClient from '@/lib/api/client'
 import { useWeddingStore } from '@/lib/store/useWeddingStore'
 import UserInfoEditModal from '@/components/my-info/UserInfoEditModal'
@@ -244,9 +245,7 @@ export default function MyInfoPage() {
   if (loading) {
     return (
       <Container maxWidth="md" className="py-6">
-        <div className="flex justify-center items-center min-h-[400px]">
-          <div className="text-gray-600">로딩 중...</div>
-        </div>
+        <LoadingScreen />
       </Container>
     )
   }

@@ -22,6 +22,9 @@ export async function GET(
         userId: user.userId,
         isDeleted: false,
       },
+      include: {
+        updatedBy: { select: { email: true, name: true } },
+      },
     })
 
     if (!item) {
@@ -89,6 +92,10 @@ export async function PUT(
         dueDate: dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : existingItem.dueDate,
         note: note !== undefined ? note : existingItem.note,
         completedAt: finalCompletedAt,
+        updatedById: user.userId,
+      },
+      include: {
+        updatedBy: { select: { email: true, name: true } },
       },
     })
 
