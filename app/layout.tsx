@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import HeaderWrapper from '@/components/layout/HeaderWrapper'
 import Footer from '@/components/layout/Footer'
+import ThemeSync from '@/components/layout/ThemeSync'
 import { StoreProvider } from '@/lib/providers/StoreProvider'
 import './globals.css'
 
@@ -24,9 +25,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ko" className="overflow-x-hidden">
+    <html lang="ko" className="overflow-x-hidden" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('wedding-theme');var s=t?JSON.parse(t):null;var theme=(s&&s.state&&s.state.theme==='white')?'white':'warm';document.documentElement.dataset.theme=theme;}catch(e){document.documentElement.dataset.theme='warm';}})();`,
+          }}
+        />
+      </head>
       <body className={`${inter.className} min-h-screen overflow-x-hidden`}>
         <StoreProvider>
+          <ThemeSync />
           <div className="flex min-h-screen flex-col min-w-0 w-full max-w-screen-2xl mx-auto">
             <HeaderWrapper />
             <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>

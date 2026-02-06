@@ -2,13 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 앱은 라이트 모드 고정 (모바일 디자인 통일) */
-:root {
+/* 테마: warm(백그라운드) / white(화이트) */
+:root,
+[data-theme="warm"] {
   --app-bg: #f4f3f1;
   --app-surface: #ffffff;
   --app-border: #e8e6e3;
   --app-text: #1c1917;
   --app-text-muted: #57534e;
+  --app-accent: #2563eb;
+  --app-accent-soft: #eff6ff;
+}
+
+[data-theme="white"] {
+  --app-bg: #ffffff;
+  --app-surface: #ffffff;
+  --app-border: #e5e7eb;
+  --app-text: #111827;
+  --app-text-muted: #6b7280;
   --app-accent: #2563eb;
   --app-accent-soft: #eff6ff;
 }

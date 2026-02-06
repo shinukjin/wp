@@ -3,6 +3,7 @@
 import { useMemo, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useWeddingStore } from '@/lib/store/useWeddingStore'
+import { useThemeStore } from '@/lib/store/useThemeStore'
 import { cn } from '@/lib/utils/cn'
 
 interface HeaderProps {
@@ -12,6 +13,7 @@ interface HeaderProps {
 
 export default function Header({ initialIsAuthenticated = false, initialToken = null }: HeaderProps) {
   const { user, isAuthenticated, logout, _hasHydrated, login } = useWeddingStore()
+  const { theme, setTheme } = useThemeStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // 서버에서 받은 초기 인증 상태를 우선 사용하고, 하이드레이션 후 Zustand 상태와 동기화
@@ -75,8 +77,30 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
           </Link>
         </nav>
 
-        {/* Desktop User Menu */}
-        <div className="hidden md:flex items-center space-x-4 min-w-0 justify-end">
+        {/* Desktop: 테마 전환 + User Menu */}
+        <div className="hidden md:flex items-center space-x-3 min-w-0 justify-end">
+          <div className="flex rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-0.5" role="group" aria-label="테마 선택">
+            <button
+              type="button"
+              onClick={() => setTheme('white')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-medium rounded-md transition-colors',
+                theme === 'white' ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900'
+              )}
+            >
+              화이트
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('warm')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-medium rounded-md transition-colors',
+                theme === 'warm' ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:text-gray-900'
+              )}
+            >
+              백그라운드
+            </button>
+          </div>
           {displayIsAuthenticated ? (
             <>
               <Link href="/my-info" className="text-sm font-medium text-gray-700 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-blue-50 shrink-0">
@@ -93,8 +117,30 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
           )}
         </div>
 
-        {/* Mobile: 햄버거 + 메뉴 패널 */}
-        <div className="flex md:hidden items-center gap-2">
+        {/* Mobile: 테마 + 햄버거 */}
+        <div className="flex md:hidden items-center gap-1">
+          <div className="flex rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-0.5" role="group" aria-label="테마 선택">
+            <button
+              type="button"
+              onClick={() => setTheme('white')}
+              className={cn(
+                'px-2 py-1 text-[11px] font-medium rounded transition-colors',
+                theme === 'white' ? 'bg-gray-200 text-gray-900' : 'text-gray-600'
+              )}
+            >
+              화이트
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('warm')}
+              className={cn(
+                'px-2 py-1 text-[11px] font-medium rounded transition-colors',
+                theme === 'warm' ? 'bg-gray-200 text-gray-900' : 'text-gray-600'
+              )}
+            >
+              배경
+            </button>
+          </div>
           {displayIsAuthenticated && (
             <Link href="/my-info" className="p-2 text-gray-600 hover:text-blue-600 rounded-lg touch-manipulation" onClick={closeMenu} aria-label="내 정보">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -122,6 +168,13 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
           <div className="fixed inset-0 z-40 bg-black/20 md:hidden" aria-hidden onClick={closeMenu} />
           <div className="absolute left-0 right-0 top-full z-50 border-b border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg md:hidden">
             <nav className="flex flex-col p-3">
+              <div className="flex items-center gap-2 pb-2 mb-2 border-b border-[var(--app-border)]">
+                <span className="text-xs text-[var(--app-text-muted)]">테마</span>
+                <div className="flex rounded-md border border-[var(--app-border)] p-0.5">
+                  <button type="button" onClick={() => { setTheme('white'); closeMenu(); }} className={cn('px-2 py-1 text-xs rounded', theme === 'white' ? 'bg-gray-200 font-medium' : '')}>화이트</button>
+                  <button type="button" onClick={() => { setTheme('warm'); closeMenu(); }} className={cn('px-2 py-1 text-xs rounded', theme === 'warm' ? 'bg-gray-200 font-medium' : '')}>백그라운드</button>
+                </div>
+              </div>
               <Link href="/wedding-prep" className={navLinkClass} onClick={closeMenu}>결혼 준비</Link>
               <Link href="/real-estate" className={navLinkClass} onClick={closeMenu}>부동산</Link>
               <Link href="/schedule" className={navLinkClass} onClick={closeMenu}>일정계획</Link>
