@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthFromHeader } from '@/lib/utils/auth'
+import { getSharedUserIds } from '@/lib/utils/connection'
 import logger from '@/lib/logger'
 import { generateETag, compareETag } from '@/lib/utils/etag'
 
-// GET: 결혼 준비 항목 목록 조회 (필터링 포함)
+// GET: 결혼 준비 항목 목록 조회 (필터링 포함, 연결 시 상대 자료 공유)
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -14,6 +15,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
     }
 
+    const userIds = await getSharedUserIds(user.userId)
+
     const searchParams = request.nextUrl.searchParams
     const category = searchParams.get('category')
     const status = searchParams.get('status')
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     // 필터 조건 구성
     const where: any = {
-      userId: user.userId,
+      userId: { in: userIds },
       isDeleted: false,
     }
 

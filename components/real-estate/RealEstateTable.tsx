@@ -429,7 +429,7 @@ export default function RealEstateTable() {
     }, [item])
 
     // 구분 옵션
-    const categories = ['매매', '전세', '월세']
+    const categories = ['매매', '전세', '월세', '기타']
 
     // onChange 모드 (실시간 업데이트) - 한글 입력 시 커서 유지를 위해 로컬 상태만 업데이트
     const handleChange = useCallback((field: string, value: string) => {
@@ -486,19 +486,14 @@ export default function RealEstateTable() {
           </select>
         </td>
         <td className="px-3 py-2">
-          <select
+          <input
+            type="text"
             value={formData.region}
             onChange={(e) => handleChange('region', e.target.value)}
-            className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+            placeholder="지역 입력"
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
-          >
-            <option value="">선택</option>
-            {regions.map((region) => (
-              <option key={region} value={region}>
-                {region}
-              </option>
-            ))}
-          </select>
+          />
         </td>
         <td className="px-3 py-2">
           <input

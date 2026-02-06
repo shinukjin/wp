@@ -12,22 +12,58 @@ datasource db {
 
 // 사용자 모델
 model User {
-  id          String    @id @default(cuid())
-  email       String    @unique // 계정 (이메일 형식)
-  password    String    // 비밀번호
-  name        String?   // 이름 (선택사항)
-  budget      Int       @default(0) // 현재 예산
-  ownMoney    Int       @default(0) // 내 보유금
-  loanAmount  Int       @default(0) // 내 대출금
-  loanRate    Float     @default(0) // 대출이율 (연이율, %)
-  loanPeriod  Int       @default(0) // 대출기간 (개월)
-  isDeleted   Boolean   @default(false) // 탈퇴유무
-  deletedAt   DateTime? // 탈퇴일시
-  lastLoginAt DateTime? // 마지막 접속시간
-  createdAt   DateTime  @default(now()) // 가입일
-  updatedAt   DateTime  @updatedAt // 수정일시
-  weddingPreps WeddingPrep[] // 결혼 준비 항목들
-  realEstates RealEstate[] // 부동산 항목들
+  id                String    @id @default(cuid())
+  email             String    @unique // 계정 (이메일 형식)
+  password          String    // 비밀번호
+  name              String?   // 이름 (선택사항)
+  budget            Int       @default(0) // 현재 예산
+  ownMoney          Int       @default(0) // 내 보유금
+  loanAmount        Int       @default(0) // 내 대출금
+  loanRate          Float     @default(0) // 대출이율 (연이율, %)
+  loanPeriod        Int       @default(0) // 대출기간 (개월)
+  discordWebhookUrl String?   // 디스코드 웹훅 URL (알림 수신)
+  isDeleted         Boolean   @default(false) // 탈퇴유무
+  deletedAt         DateTime? // 탈퇴일시
+  lastLoginAt       DateTime? // 마지막 접속시간
+  createdAt         DateTime  @default(now()) // 가입일
+  updatedAt         DateTime  @updatedAt // 수정일시
+  weddingPreps      WeddingPrep[] // 결혼 준비 항목들
+  realEstates       RealEstate[] // 부동산 항목들
+  travelSchedules   TravelSchedule[] // 여행 일정
+  connectionRequestsSent     ConnectionRequest[] @relation("ConnectionRequestFrom")
+  connectionRequestsReceived ConnectionRequest[] @relation("ConnectionRequestTo")
+  connectionsAsUser1 Connection[] @relation("ConnectionUser1")
+  connectionsAsUser2 Connection[] @relation("ConnectionUser2")
+}
+
+// 연결 신청 (상대방 ID로 신청 → 승인 시 연결)
+model ConnectionRequest {
+  id         String   @id @default(cuid())
+  fromUserId String   // 신청자
+  toUserId   String   // 수신자
+  status     String   @default("pending") // pending | accepted | rejected
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  fromUser   User     @relation("ConnectionRequestFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User     @relation("ConnectionRequestTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId])
+  @@index([fromUserId])
+}
+
+// 연결됨 (승인 시 생성, 1:1 연결)
+model Connection {
+  id        String   @id @default(cuid())
+  userId1   String   // 한쪽 사용자 ID (작은 쪽 권장)
+  userId2   String   // 다른 쪽 사용자 ID
+  createdAt DateTime @default(now())
+  user1    User     @relation("ConnectionUser1", fields: [userId1], references: [id], onDelete: Cascade)
+  user2    User     @relation("ConnectionUser2", fields: [userId2], references: [id], onDelete: Cascade)
+
+  @@unique([userId1, userId2])
+  @@index([userId1])
+  @@index([userId2])
 }
 
 // 결혼 준비 모델
@@ -76,5 +112,25 @@ model RealEstate {
   @@index([userId])
   @@index([category])
   @@index([region])
+}
+
+// 여행 일정 (일정계획)
+model TravelSchedule {
+  id            String    @id @default(cuid())
+  userId        String    // 사용자 ID
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String    // 제목
+  dueDate       DateTime? // 예정일
+  note          String?   // 내용
+  remindEnabled        Boolean   @default(true) // 알림 여부
+  reminderSentDayBefore DateTime? // 전날 오전 9시 알림 전송 여부
+  reminderSentDayOf     DateTime? // 당일 오전 9시 알림 전송 여부
+  isDeleted             Boolean   @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([dueDate])
 }
 

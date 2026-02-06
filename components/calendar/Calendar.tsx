@@ -15,25 +15,63 @@ interface CalendarEvent {
   priority: number
 }
 
+interface TravelEvent {
+  id: string
+  title: string
+  dueDate: string | null
+  note: string | null
+}
+
 interface CalendarData {
   year: number
   month: number
   events: Record<string, CalendarEvent[]>
+  travelByDate?: Record<string, TravelEvent[]>
 }
 
-export default function Calendar() {
+interface CalendarProps {
+  selectedDate?: string | null
+  onSelectDate?: (dateKey: string) => void
+  /** 상위에서 변경 시 캘린더 데이터 리프레시 (예: 일정 저장 후) */
+  refreshKey?: number
+  /** 검색어: 일정계획 제목·내용, 결혼준비 내용·구분 필터 (캘린더 숫자 반영) */
+  searchQuery?: string
+}
+
+function matchSearchEvent(q: string, event: CalendarEvent): boolean {
+  if (!q) return true
+  return (
+    event.content.toLowerCase().includes(q) ||
+    (event.category ? event.category.toLowerCase().includes(q) : false)
+  )
+}
+
+function matchSearchTravel(q: string, te: TravelEvent): boolean {
+  if (!q) return true
+  return (
+    te.title.toLowerCase().includes(q) ||
+    (te.note != null && te.note.toLowerCase().includes(q))
+  )
+}
+
+export default function Calendar({ selectedDate: controlledSelected, onSelectDate, refreshKey = 0, searchQuery = '' }: CalendarProps = {}) {
   const { token } = useWeddingStore()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [internalSelected, setInternalSelected] = useState<string | null>(null)
+  const selectedDate = controlledSelected !== undefined ? controlledSelected : internalSelected
+  const setSelectedDate = (key: string | null) => {
+    if (onSelectDate && key) onSelectDate(key)
+    if (controlledSelected === undefined) setInternalSelected(key)
+  }
 
   useEffect(() => {
     if (token) {
       fetchCalendarData()
     }
-  }, [token, currentDate])
+  }, [token, currentDate, refreshKey])
 
   const fetchCalendarData = async () => {
     try {
@@ -144,47 +182,62 @@ export default function Calendar() {
     days.push(day)
   }
 
-  const selectedEvents = selectedDate && calendarData.events[selectedDate] ? calendarData.events[selectedDate] : []
+  const searchTrim = (searchQuery || '').trim().toLowerCase()
+  const selectedEvents =
+    selectedDate && calendarData.events[selectedDate]
+      ? searchTrim
+        ? calendarData.events[selectedDate].filter((e) => matchSearchEvent(searchTrim, e))
+        : calendarData.events[selectedDate]
+      : []
+  const selectedTravel =
+    selectedDate && calendarData.travelByDate?.[selectedDate]
+      ? searchTrim
+        ? calendarData.travelByDate[selectedDate].filter((te) => matchSearchTravel(searchTrim, te))
+        : calendarData.travelByDate[selectedDate]
+      : []
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200/50 hover:shadow-xl transition-shadow duration-300">
+    <div className="bg-white rounded-2xl shadow-lg p-5 border border-slate-200/60 overflow-hidden">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-base font-semibold text-gray-900">캘린더</h2>
-        <div className="flex items-center space-x-2">
+        <h2 className="text-lg font-semibold text-slate-800">캘린더</h2>
+        <div className="flex items-center gap-1">
           <button
             onClick={goToPreviousMonth}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <button
             onClick={goToToday}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+            className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
           >
             오늘
           </button>
           <button
             onClick={goToNextMonth}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
       </div>
 
       <div className="mb-3">
-        <h3 className="text-base font-semibold text-gray-900">
+        <p className="text-sm font-medium text-slate-600">
           {year}년 {monthNames[month - 1]}
-        </h3>
+        </p>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-4">
-        {dayNames.map((day) => (
-          <div key={day} className="text-center text-sm font-medium text-gray-600 py-2">
+      <div className="grid grid-cols-7 gap-0.5 mb-2">
+        {dayNames.map((day, i) => (
+          <div
+            key={day}
+            className={`text-center text-xs font-medium py-1.5 ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-slate-500'}`}
+          >
             {day}
           </div>
         ))}
@@ -197,7 +250,11 @@ export default function Calendar() {
           }
 
           const dateKey = formatDateKey(year, month, day)
-          const events = calendarData.events[dateKey] || []
+          const rawEvents = calendarData.events[dateKey] || []
+          const rawTravel = calendarData.travelByDate?.[dateKey] || []
+          const events = searchTrim ? rawEvents.filter((e) => matchSearchEvent(searchTrim, e)) : rawEvents
+          const travelOnDay = searchTrim ? rawTravel.filter((te) => matchSearchTravel(searchTrim, te)) : rawTravel
+          const totalCount = events.length + travelOnDay.length
           const isCurrentDay = isToday(year, month, day)
           const isSelected = selectedDate === dateKey
 
@@ -205,81 +262,95 @@ export default function Calendar() {
             <div
               key={day}
               onClick={() => setSelectedDate(dateKey)}
-              className={`aspect-square border-2 rounded-xl p-1 cursor-pointer transition-all duration-200 ${
+              className={`relative aspect-square rounded-xl p-1 cursor-pointer transition-all duration-200 flex flex-col items-center justify-center border ${
                 isSelected
-                  ? 'bg-gradient-to-br from-blue-100 to-blue-200 border-blue-400 shadow-md scale-105'
+                  ? 'bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-200/50 scale-[1.02]'
                   : isCurrentDay
-                  ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-300 shadow-sm'
-                  : 'border-gray-200 hover:bg-gradient-to-br hover:from-gray-50 hover:to-blue-50/50 hover:border-blue-200 hover:shadow-sm'
+                  ? 'bg-slate-100 border-slate-300 text-slate-900 font-semibold'
+                  : 'border-slate-200/80 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800'
               }`}
+              title={totalCount > 0 ? `알림 ${totalCount}건` : undefined}
             >
-              <div className={`text-sm font-medium mb-1 ${isCurrentDay ? 'text-blue-600' : 'text-gray-900'}`}>
+              {/* 1시 방향 알림 뱃지 */}
+              {totalCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-bold text-white shadow-sm ring-2 ring-white"
+                  aria-hidden
+                >
+                  {totalCount}
+                </span>
+              )}
+              <span
+                className={`text-sm font-medium ${isSelected ? 'text-white' : isCurrentDay ? 'text-slate-900' : 'text-slate-700'}`}
+              >
                 {day}
-              </div>
-              <div className="space-y-1">
-                {events.slice(0, 2).map((event) => (
-                  <div
-                    key={event.id}
-                    className={`text-xs px-1 py-0.5 rounded truncate ${getPriorityColor(event.priority)}`}
-                    title={`${event.category}: ${event.content} (${event.amount.toLocaleString()}원)`}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(event.status)}`} />
-                      <span className="truncate">{event.content}</span>
-                    </div>
-                  </div>
-                ))}
-                {events.length > 2 && (
-                  <div className="text-xs text-gray-500 px-1">+{events.length - 2}개</div>
-                )}
-              </div>
+              </span>
             </div>
           )
         })}
       </div>
 
       {/* 선택된 날짜의 이벤트 목록 */}
-      {selectedDate && selectedEvents.length > 0 && (
-        <div className="mt-6 border-t pt-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">
+      {selectedDate && (selectedEvents.length > 0 || selectedTravel.length > 0) && (
+        <div className="mt-5 pt-4 border-t border-slate-200">
+          <p className="text-xs font-medium text-slate-500 mb-3">
             {new Date(selectedDate).toLocaleDateString('ko-KR', {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
               weekday: 'long',
             })}
-          </h3>
+          </p>
           <div className="space-y-2">
             {selectedEvents.map((event) => (
               <Link
                 key={event.id}
                 href="/wedding-prep"
-                className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="block p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-100 transition-colors"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPriorityColor(event.priority)}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-xs text-slate-500">결혼준비</span>
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${getPriorityColor(event.priority)}`}>
                         {event.priority === 2 ? '높음' : event.priority === 1 ? '보통' : '낮음'}
                       </span>
-                      <span className="text-xs text-gray-600">{event.category}</span>
-                      <div className={`w-2 h-2 rounded-full ${getStatusColor(event.status)}`} />
+                      <span className="text-xs text-slate-600">{event.category}</span>
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${getStatusColor(event.status)}`} />
                     </div>
-                    <p className="text-sm font-medium text-gray-900">{event.content}</p>
+                    <p className="text-sm font-medium text-slate-900 truncate">{event.content}</p>
                   </div>
-                  <p className="text-sm font-medium text-gray-900 ml-4">
+                  <p className="text-sm font-semibold text-slate-800 whitespace-nowrap">
                     {event.amount.toLocaleString()}원
                   </p>
                 </div>
+              </Link>
+            ))}
+            {selectedTravel.map((te) => (
+              <Link
+                key={te.id}
+                href="/schedule"
+                className="block p-3 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/60 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-amber-700">일정계획</span>
+                  {te.dueDate && (
+                    <span className="text-xs text-slate-500">
+                      {new Date(te.dueDate).toLocaleString('ko-KR', { timeStyle: 'short' })}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-slate-900 mt-0.5">{te.title}</p>
+                {te.note && <p className="text-xs text-slate-600 mt-0.5">{te.note}</p>}
               </Link>
             ))}
           </div>
         </div>
       )}
 
-      {selectedDate && selectedEvents.length === 0 && (
-        <div className="mt-6 border-t pt-4 text-center text-sm text-gray-500">
-          선택한 날짜에 예정된 항목이 없습니다.
+      {selectedDate && selectedEvents.length === 0 && selectedTravel.length === 0 && (
+        <div className="mt-5 pt-4 border-t border-slate-200 text-center py-4">
+          <p className="text-sm text-slate-500">선택한 날짜에 예정된 항목이 없습니다.</p>
         </div>
       )}
     </div>

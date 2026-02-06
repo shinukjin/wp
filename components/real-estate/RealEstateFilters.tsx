@@ -57,18 +57,13 @@ export default function RealEstateFilters({
       {/* 지역 필터 */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">지역</label>
-        <select
+        <input
+          type="text"
           value={filters.region}
           onChange={(e) => handleFilterChange('region', e.target.value)}
-          className="px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">전체</option>
-          {regions.map((region) => (
-            <option key={region} value={region}>
-              {region}
-            </option>
-          ))}
-        </select>
+          placeholder="지역 검색"
+          className="w-32 px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
       </div>
 
       {/* 가격 범위 필터 */}

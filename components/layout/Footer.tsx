@@ -29,6 +29,12 @@ export default function Footer() {
               >
                 부동산
               </Link>
+              <Link
+                href="/schedule"
+                className="text-xs text-gray-600 hover:text-blue-600 transition-colors font-medium"
+              >
+                일정계획
+              </Link>
             </nav>
           </div>
 

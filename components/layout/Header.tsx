@@ -66,6 +66,9 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
           <Link href="/real-estate" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-2 py-1 rounded-md hover:bg-blue-50">
             부동산
           </Link>
+          <Link href="/schedule" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-2 py-1 rounded-md hover:bg-blue-50">
+            일정계획
+          </Link>
         </nav>
 
         {/* User Menu - 서버에서 받은 초기 상태로 즉시 표시 */}

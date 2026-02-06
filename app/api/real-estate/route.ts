@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthFromHeader } from '@/lib/utils/auth'
+import { getSharedUserIds } from '@/lib/utils/connection'
 import logger from '@/lib/logger'
 import { rename, mkdir } from 'fs/promises'
 import { existsSync} from 'fs'
@@ -17,6 +18,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
     }
 
+    const userIds = await getSharedUserIds(user.userId)
+
     const searchParams = request.nextUrl.searchParams
     const category = searchParams.get('category')
     const region = searchParams.get('region')
@@ -25,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // 필터 조건 구성
     const where: any = {
-      userId: user.userId,
+      userId: { in: userIds },
       isDeleted: false,
     }
 

@@ -300,19 +300,21 @@ export default function WeddingPrepTable() {
     const [formData, setFormData] = useState(initialFormDataRef.current)
 
     // 구분 옵션
-    const categories = ['스드메', '예식장', '가전/가구', '신혼여행']
+    const categories = ['스드메', '예식장', '가전/가구', '신혼여행', '기타']
 
     // 상세구분 옵션 (구분에 따라 동적 변경)
     const getSubCategories = (category: string): string[] => {
       switch (category) {
         case '스드메':
-          return ['스튜디오', '드레스', '메이크업']
+          return ['스튜디오', '드레스', '메이크업', '기타']
         case '예식장':
-          return ['예식장']
+          return ['예식장', '기타']
         case '가전/가구':
-          return ['가전', '가구']
+          return ['가전', '가구', '기타']
         case '신혼여행':
           return ['항공권', '호텔', '기타']
+        case '기타':
+          return ['기타']
         default:
           return []
       }

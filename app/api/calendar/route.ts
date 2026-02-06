@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthFromHeader } from '@/lib/utils/auth'
+import { getSharedUserIds } from '@/lib/utils/connection'
 import logger from '@/lib/logger'
 
-// GET: 캘린더 데이터 조회 (결혼 준비 예정일)
+// GET: 캘린더 데이터 조회 (결혼 준비 + 일정계획, 연결 시 상대 자료 공유)
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -12,6 +13,8 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
     }
+
+    const userIds = await getSharedUserIds(user.userId)
 
     const searchParams = request.nextUrl.searchParams
     const year = searchParams.get('year')
@@ -29,7 +32,7 @@ export async function GET(request: NextRequest) {
     // 예정일이 있는 결혼 준비 항목 조회
     const items = await prisma.weddingPrep.findMany({
       where: {
-        userId: user.userId,
+        userId: { in: userIds },
         isDeleted: false,
         dueDate: {
           gte: startDate,
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // 날짜별로 그룹화
+    // 결혼 준비: 날짜별로 그룹화
     const eventsByDate: Record<string, typeof items> = {}
     items.forEach(item => {
       if (item.dueDate) {
@@ -62,10 +65,43 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // 여행 일정: 해당 월 예정일 기준으로 날짜별 그룹화
+    const travelSchedules = await prisma.travelSchedule.findMany({
+      where: {
+        userId: { in: userIds },
+        isDeleted: false,
+        dueDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        note: true,
+      },
+    })
+
+    const travelByDate: Record<string, { id: string; title: string; dueDate: Date | null; note: string | null }[]> = {}
+    travelSchedules.forEach((ts) => {
+      if (ts.dueDate) {
+        const dateKey = ts.dueDate.toISOString().split('T')[0]
+        if (!travelByDate[dateKey]) travelByDate[dateKey] = []
+        travelByDate[dateKey].push({
+          id: ts.id,
+          title: ts.title,
+          dueDate: ts.dueDate,
+          note: ts.note,
+        })
+      }
+    })
+
     return NextResponse.json({
       year: targetYear,
       month: targetMonth,
       events: eventsByDate,
+      travelByDate,
     })
   } catch (error) {
     logger.error('Calendar get error:', error)

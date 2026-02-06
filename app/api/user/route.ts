@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthFromHeader } from '@/lib/utils/auth'
+import { getConnectedPartnerId } from '@/lib/utils/connection'
 import logger from '@/lib/logger'
 import { generateETag, compareETag } from '@/lib/utils/etag'
 
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest) {
         loanAmount: true,
         loanRate: true,
         loanPeriod: true,
+        discordWebhookUrl: true,
         createdAt: true,
         lastLoginAt: true,
         updatedAt: true,
@@ -133,6 +135,56 @@ export async function GET(request: NextRequest) {
     logger.error('User info get error:', error)
     return NextResponse.json(
       { error: '사용자 정보를 불러오는 중 오류가 발생했습니다.' },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH: 프로필 일부 수정 (디스코드 웹훅 URL 등)
+export async function PATCH(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization')
+    const user = getAuthFromHeader(authHeader)
+    if (!user) {
+      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
+    }
+
+    const body = await request.json().catch(() => ({}))
+    const { discordWebhookUrl } = body
+
+    const updateData: { discordWebhookUrl?: string | null } = {}
+    if (discordWebhookUrl !== undefined) {
+      const url = typeof discordWebhookUrl === 'string' ? discordWebhookUrl.trim() || null : null
+      updateData.discordWebhookUrl = url
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: '수정할 항목이 없습니다.' }, { status: 400 })
+    }
+
+    await prisma.user.update({
+      where: { id: user.userId },
+      data: updateData,
+    })
+
+    // 연결된 상대가 있으면 상대방 디스코드도 동일하게 저장
+    if (updateData.discordWebhookUrl !== undefined) {
+      const partnerId = await getConnectedPartnerId(user.userId)
+      if (partnerId) {
+        await prisma.user.update({
+          where: { id: partnerId },
+          data: { discordWebhookUrl: updateData.discordWebhookUrl },
+        })
+        logger.info(`Partner discord synced: ${partnerId}`)
+      }
+    }
+
+    logger.info(`User profile updated: ${user.userId}`)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    logger.error('User profile patch error:', error)
+    return NextResponse.json(
+      { error: '수정 중 오류가 발생했습니다.' },
       { status: 500 }
     )
   }
