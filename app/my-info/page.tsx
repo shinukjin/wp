@@ -266,9 +266,9 @@ export default function MyInfoPage() {
   }
 
   return (
-    <Container maxWidth="md" className="py-6">
+    <Container maxWidth="md" className="py-4 sm:py-6">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">내 정보</h1>
+        <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">내 정보</h1>
       </div>
 
       <div className="space-y-4">

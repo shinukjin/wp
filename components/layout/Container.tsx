@@ -20,13 +20,11 @@ export default function Container({
     full: 'max-w-full',
   }
 
-  // Header/Footer와 완전히 동일한 구조: container mx-auto px-4
-  // maxWidth가 'full'일 때는 max-w-full 추가
   return (
     <div
       className={cn(
-        'container mx-auto px-4', // Header/Footer와 동일
-        maxWidth === 'full',
+        'w-full min-w-0 mx-auto px-3 sm:px-4',
+        maxWidthClasses[maxWidth],
         className
       )}
     >

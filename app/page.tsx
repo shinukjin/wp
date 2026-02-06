@@ -32,12 +32,12 @@ export default function Home() {
   }
 
   return (
-    <Container maxWidth="full" className="py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">대시보드</h1>
+    <Container maxWidth="full" className="py-4 sm:py-6 lg:py-8">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">대시보드</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
         {/* 대시보드 - 2열 */}
         <div className="lg:col-span-2">
           <Dashboard />

@@ -4,16 +4,16 @@ import Container from '@/components/layout/Container'
 
 export default function LoginPage() {
   return (
-    <Container maxWidth="sm" className="py-12">
+    <Container maxWidth="sm" className="py-6 sm:py-12">
       <div className="mx-auto max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">로그인</h1>
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">로그인</h1>
           <p className="text-sm text-gray-600">
             Wedding Project에 오신 것을 환영합니다
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-200/50">
+        <div className="bg-white rounded-2xl shadow-2xl p-5 sm:p-8 border border-gray-200/50">
           <LoginForm />
 
           <div className="mt-6 text-center">

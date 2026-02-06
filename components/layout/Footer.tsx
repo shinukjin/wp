@@ -5,10 +5,10 @@ export default function Footer() {
 
   return (
     <footer className="border-t border-gray-200/50 bg-white/80 backdrop-blur-sm">
-      <div className="container mx-auto px-4 py-6">
+      <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <div className="space-y-3">
           {/* Wedding Project 제목과 링크 */}
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <h3 className="text-sm font-semibold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">Wedding Project</h3>
             <nav className="flex flex-wrap gap-4">
               <Link

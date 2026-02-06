@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import apiClient from '@/lib/api/client'
 import { useWeddingStore } from '@/lib/store/useWeddingStore'
-import Link from 'next/link'
 
 interface DashboardData {
   budget: number
@@ -55,19 +54,6 @@ export default function Dashboard() {
     return new Intl.NumberFormat('ko-KR').format(amount)
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case '완료':
-        return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200'
-      case '진행중':
-        return 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border border-blue-200'
-      case '취소':
-        return 'bg-gradient-to-r from-red-100 to-rose-100 text-red-800 border border-red-200'
-      default:
-        return 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200'
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[300px]">
@@ -92,40 +78,63 @@ export default function Dashboard() {
   const usagePercentage = data.budget > 0 ? (data.weddingPrepAmount / data.budget) * 100 : 0
 
   return (
-    <div className="space-y-6">
-      {/* 주요 지표 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-200/50">
+    <div className="space-y-4 sm:space-y-6 min-w-0">
+      {/* 모바일: 한 섹션에 4개 지표 (글씨 작게) */}
+      <div className="md:hidden bg-white rounded-xl shadow-lg p-4 border border-gray-200/50">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">요약</h3>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <div>
+            <p className="text-[10px] text-gray-500">현재 예산</p>
+            <p className="text-sm font-semibold text-gray-900 truncate" title={formatCurrency(data.budget)}>{formatCurrency(data.budget)}원</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">사용 금액</p>
+            <p className="text-sm font-semibold text-gray-900 truncate" title={formatCurrency(data.weddingPrepAmount)}>{formatCurrency(data.weddingPrepAmount)}원</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">내 보유금</p>
+            <p className="text-sm font-semibold text-gray-900 truncate" title={formatCurrency(data.ownMoney)}>{formatCurrency(data.ownMoney)}원</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">대출금액</p>
+            <p className="text-sm font-semibold text-gray-900 truncate" title={formatCurrency(data.loanAmount)}>{formatCurrency(data.loanAmount)}원</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 데스크톱: 주요 지표 4칸 */}
+      <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border border-gray-200/50 min-w-0">
+          <div className="min-w-0">
             <p className="text-xs font-medium text-gray-600 mb-1">현재 예산</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1 whitespace-nowrap">{formatCurrency(data.budget)}원</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1 truncate" title={formatCurrency(data.budget)}>{formatCurrency(data.budget)}원</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-200/50">
-          <div>
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border border-gray-200/50 min-w-0">
+          <div className="min-w-0">
             <p className="text-xs font-medium text-gray-600 mb-1">사용 금액</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1 whitespace-nowrap">{formatCurrency(data.weddingPrepAmount)}원</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1 truncate" title={formatCurrency(data.weddingPrepAmount)}>{formatCurrency(data.weddingPrepAmount)}원</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-200/50">
-          <div>
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border border-gray-200/50 min-w-0">
+          <div className="min-w-0">
             <p className="text-xs font-medium text-gray-600 mb-1">내 보유금</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1 whitespace-nowrap">{formatCurrency(data.ownMoney)}원</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1 truncate" title={formatCurrency(data.ownMoney)}>{formatCurrency(data.ownMoney)}원</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-200/50">
-          <div>
+        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border border-gray-200/50 min-w-0">
+          <div className="min-w-0">
             <p className="text-xs font-medium text-gray-600 mb-1">대출금액</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1 whitespace-nowrap">{formatCurrency(data.loanAmount)}원</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1 truncate" title={formatCurrency(data.loanAmount)}>{formatCurrency(data.loanAmount)}원</p>
           </div>
         </div>
       </div>
 
       {/* 예산 사용률 */}
-      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200/50">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-200/50">
         <h3 className="text-base font-semibold text-gray-900 mb-4">예산 사용 현황</h3>
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
@@ -144,69 +153,16 @@ export default function Dashboard() {
               style={{ width: `${Math.min(usagePercentage, 100)}%` }}
             />
           </div>
-          <div className="flex justify-between text-sm text-gray-600">
-            <span className="whitespace-nowrap">남은 예산: {formatCurrency(remainingBudget)}원</span>
-            <span className="whitespace-nowrap">사용 금액: {formatCurrency(data.weddingPrepAmount)}원 / {formatCurrency(data.budget)}원</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 통계 정보 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 상태별 통계 */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200/50 hover:shadow-xl transition-shadow duration-300">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base font-semibold text-gray-900">상태별 통계</h3>
-            <Link
-              href="/wedding-prep"
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-            >
-              자세히 보기 →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {data.statusStats.map((stat) => (
-              <div key={stat.status} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded-lg px-2 transition-colors">
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-lg text-xs font-semibold shadow-sm ${getStatusColor(stat.status)}`}>
-                    {stat.status}
-                  </span>
-                  <span className="text-sm text-gray-600 font-medium">{stat.count}건</span>
-                </div>
-                <span className="font-bold text-gray-900 whitespace-nowrap">{formatCurrency(stat.amount)}원</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 카테고리별 통계 */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200/50 hover:shadow-xl transition-shadow duration-300">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base font-semibold text-gray-900">카테고리별 통계</h3>
-            <Link
-              href="/wedding-prep"
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-            >
-              자세히 보기 →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {data.categoryStats.slice(0, 5).map((stat) => (
-              <div key={stat.category} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded-lg px-2 transition-colors">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-semibold text-gray-900">{stat.category}</span>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">({stat.count}건)</span>
-                </div>
-                <span className="font-bold text-gray-900 whitespace-nowrap">{formatCurrency(stat.amount)}원</span>
-              </div>
-            ))}
+          <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm text-gray-600">
+            <span className="truncate">남은 예산: {formatCurrency(remainingBudget)}원</span>
+            <span className="truncate">사용 금액: {formatCurrency(data.weddingPrepAmount)}원 / {formatCurrency(data.budget)}원</span>
           </div>
         </div>
       </div>
 
       {/* 대출 정보 */}
       {data.loanAmount > 0 && (
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200/50">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-200/50">
           <h3 className="text-base font-semibold text-gray-900 mb-4">대출 정보</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -224,60 +180,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* 빠른 링크 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link
-          href="/wedding-prep"
-          className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-200/50"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl shadow-md">
-              <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900">결혼 준비</p>
-              <p className="text-sm text-gray-600">항목 관리</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          href="/real-estate"
-          className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-200/50"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl shadow-md">
-              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900">부동산</p>
-              <p className="text-sm text-gray-600">{data.realEstateCount}개 항목</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          href="/my-info"
-          className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-200/50"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl shadow-md">
-              <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900">내 정보</p>
-              <p className="text-sm text-gray-600">계정 관리</p>
-            </div>
-          </div>
-        </Link>
-      </div>
     </div>
   )
 }

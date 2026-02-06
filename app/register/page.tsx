@@ -4,16 +4,16 @@ import Container from '@/components/layout/Container'
 
 export default function RegisterPage() {
   return (
-    <Container maxWidth="sm" className="py-12">
+    <Container maxWidth="sm" className="py-6 sm:py-12">
       <div className="mx-auto max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">회원가입</h1>
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">회원가입</h1>
           <p className="text-sm text-gray-600">
             Wedding Project에 가입하고 시작하세요
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-200/50">
+        <div className="bg-white rounded-2xl shadow-2xl p-5 sm:p-8 border border-gray-200/50">
           <RegisterForm />
 
           <div className="mt-6 text-center">

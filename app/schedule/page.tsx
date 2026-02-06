@@ -3,9 +3,9 @@ import SchedulePageContent from '@/components/schedule/SchedulePageContent'
 
 export default function SchedulePage() {
   return (
-    <Container maxWidth="full" className="py-8">
+    <Container maxWidth="full" className="py-4 sm:py-6 lg:py-8">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
+        <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
           일정계획
         </h1>
         <p className="mt-0.5 text-xs text-gray-500">

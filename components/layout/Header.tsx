@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useWeddingStore } from '@/lib/store/useWeddingStore'
 import { cn } from '@/lib/utils/cn'
@@ -12,6 +12,7 @@ interface HeaderProps {
 
 export default function Header({ initialIsAuthenticated = false, initialToken = null }: HeaderProps) {
   const { user, isAuthenticated, logout, _hasHydrated, login } = useWeddingStore()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // 서버에서 받은 초기 인증 상태를 우선 사용하고, 하이드레이션 후 Zustand 상태와 동기화
   const displayIsAuthenticated = useMemo(() => {
@@ -50,15 +51,18 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
     }
   }, [initialToken, _hasHydrated])
 
+  const navLinkClass = 'block text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-colors px-4 py-3 rounded-lg touch-manipulation'
+  const closeMenu = () => setMobileMenuOpen(false)
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200/50 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80 shadow-sm">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+      <div className="w-full max-w-screen-2xl mx-auto flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center space-x-2">
-          <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Wedding</span>
+        <Link href="/" className="flex items-center shrink-0" onClick={closeMenu}>
+          <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Wedding</span>
         </Link>
 
-        {/* Navigation */}
+        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-6">
           <Link href="/wedding-prep" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-2 py-1 rounded-md hover:bg-blue-50">
             결혼 준비
@@ -71,38 +75,71 @@ export default function Header({ initialIsAuthenticated = false, initialToken = 
           </Link>
         </nav>
 
-        {/* User Menu - 서버에서 받은 초기 상태로 즉시 표시 */}
-        <div className="flex items-center space-x-4 min-w-[120px] justify-end">
+        {/* Desktop User Menu */}
+        <div className="hidden md:flex items-center space-x-4 min-w-0 justify-end">
           {displayIsAuthenticated ? (
             <>
-              <Link
-                href="/my-info"
-                className="text-sm font-medium text-gray-700 transition-colors hover:text-blue-600 px-2 py-1 rounded-md hover:bg-blue-50"
-              >
-                {'내 정보'}
+              <Link href="/my-info" className="text-sm font-medium text-gray-700 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-blue-50 shrink-0">
+                내 정보
               </Link>
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-gray-700 transition-colors hover:text-red-600 px-2 py-1 rounded-md hover:bg-red-50"
-              >
+              <button onClick={handleLogout} className="text-sm font-medium text-gray-700 hover:text-red-600 px-2 py-1 rounded-md hover:bg-red-50 shrink-0">
                 로그아웃
               </button>
             </>
           ) : (
-            <Link
-              href="/login"
-              className={cn(
-                'inline-flex items-center justify-center rounded-md text-sm font-medium',
-                'bg-blue-600 text-white px-4 py-2',
-                'transition-colors hover:bg-blue-700 shadow-sm',
-                'h-9'
-              )}
-            >
+            <Link href="/login" className={cn('inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 text-white px-4 py-2 hover:bg-blue-700 shadow-sm h-9')}>
               로그인
             </Link>
           )}
         </div>
+
+        {/* Mobile: 햄버거 + 메뉴 패널 */}
+        <div className="flex md:hidden items-center gap-2">
+          {displayIsAuthenticated && (
+            <Link href="/my-info" className="p-2 text-gray-600 hover:text-blue-600 rounded-lg touch-manipulation" onClick={closeMenu} aria-label="내 정보">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((o) => !o)}
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 touch-manipulation"
+            aria-expanded={mobileMenuOpen}
+            aria-label="메뉴 열기"
+          >
+            {mobileMenuOpen ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile menu panel */}
+      {mobileMenuOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20 md:hidden" aria-hidden onClick={closeMenu} />
+          <div className="absolute left-0 right-0 top-full z-50 border-b border-gray-200 bg-white shadow-lg md:hidden">
+            <nav className="flex flex-col p-3">
+              <Link href="/wedding-prep" className={navLinkClass} onClick={closeMenu}>결혼 준비</Link>
+              <Link href="/real-estate" className={navLinkClass} onClick={closeMenu}>부동산</Link>
+              <Link href="/schedule" className={navLinkClass} onClick={closeMenu}>일정계획</Link>
+              <div className="border-t border-gray-100 mt-2 pt-2">
+                {displayIsAuthenticated ? (
+                  <button type="button" onClick={() => { closeMenu(); handleLogout(); }} className={cn(navLinkClass, 'w-full text-left text-red-600 hover:bg-red-50')}>
+                    로그아웃
+                  </button>
+                ) : (
+                  <Link href="/login" className={cn(navLinkClass, 'bg-blue-600 text-white hover:bg-blue-700 hover:text-white')} onClick={closeMenu}>
+                    로그인
+                  </Link>
+                )}
+              </div>
+            </nav>
+          </div>
+        </>
+      )}
     </header>
   )
 }
