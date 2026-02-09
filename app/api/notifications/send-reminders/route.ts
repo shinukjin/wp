@@ -7,20 +7,39 @@ import logger from '@/lib/logger'
 
 const KST = 'Asia/Seoul'
 
+/** KST 기준 현재 시각의 연/월/일/시 반환 (서버 타임존 무관) */
 function getKstNow() {
   const now = new Date()
-  const kst = new Date(now.toLocaleString('en-US', { timeZone: KST }))
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: KST,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  const parts = fmt.formatToParts(now)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '0'
   return {
-    year: kst.getFullYear(),
-    month: kst.getMonth() + 1,
-    day: kst.getDate(),
-    hour: kst.getHours(),
+    year: parseInt(get('year'), 10),
+    month: parseInt(get('month'), 10),
+    day: parseInt(get('day'), 10),
+    hour: parseInt(get('hour'), 10),
   }
 }
 
-function getKstDateStr(d: Date): string {
-  const kst = new Date(d.toLocaleString('en-US', { timeZone: KST }))
-  return `${kst.getFullYear()}-${String(kst.getMonth() + 1).padStart(2, '0')}-${String(kst.getDate()).padStart(2, '0')}`
+/** Date를 KST 기준 YYYY-MM-DD로 (오늘/내일 비교용) */
+function getDateStr(d: Date): string {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: KST,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const parts = fmt.formatToParts(d)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '0'
+  return `${get('year')}-${get('month')}-${get('day')}`
 }
 
 async function sendForSchedule(
@@ -47,7 +66,7 @@ async function sendForSchedule(
 }
 
 /**
- * GET: cron용 - 전날/당일 오전 10시 30분(KST)에 알림 전송 (테스트용 10:00~10:59)
+ * GET: cron용 - 오늘/내일(KST) 예정일 일정 조회 후 전부 알림 전송
  * POST: 사용자 직접 보내기 - 오늘/내일 일정 알림 즉시 전송
  */
 export async function GET(request: NextRequest) {
@@ -62,16 +81,9 @@ export async function GET(request: NextRequest) {
     }
 
     const kst = getKstNow()
-    // 테스트용: 10:00~10:59 KST (운영 시 9:00~9:59로 변경)
-    if (kst.hour < 10 || kst.hour >= 11) {
-      return NextResponse.json({
-        success: true,
-        sent: 0,
-        message: '오전 10시(10:00~10:59)에만 전송됩니다. (테스트용)',
-      })
-    }
-
     const todayStr = `${kst.year}-${String(kst.month).padStart(2, '0')}-${String(kst.day).padStart(2, '0')}`
+    const tomorrow = new Date(kst.year, kst.month - 1, kst.day + 1)
+    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
 
     const schedules = await prisma.travelSchedule.findMany({
       where: {
@@ -85,65 +97,37 @@ export async function GET(request: NextRequest) {
         title: true,
         dueDate: true,
         note: true,
-        reminderSentDayBefore: true,
-        reminderSentDayOf: true,
       },
     })
 
-    const sentIdsDayBefore: string[] = []
-    const sentIdsDayOf: string[] = []
+    let sentToday = 0
+    let sentTomorrow = 0
 
     for (const s of schedules) {
       if (!s.dueDate) continue
-      const dueStr = getKstDateStr(s.dueDate)
-      const dueDate = new Date(s.dueDate)
-      const dueDayBefore = new Date(dueDate)
-      dueDayBefore.setDate(dueDayBefore.getDate() - 1)
-      const dayBeforeStr = getKstDateStr(dueDayBefore)
+      const dueStr = getDateStr(s.dueDate)
+      if (dueStr !== todayStr && dueStr !== tomorrowStr) continue
 
-      if (todayStr === dayBeforeStr && !s.reminderSentDayBefore) {
-        const dueFormatted = s.dueDate.toLocaleString('ko-KR', {
-          timeZone: KST,
-          dateStyle: 'short',
-          timeStyle: 'short',
-        })
-        const msg = `@everyone 🔔 일정 알림 (내일)\n**${s.title}**\n예정일: ${dueFormatted}${s.note ? `\n${s.note}` : ''}`
-        await sendForSchedule(s, msg)
-        sentIdsDayBefore.push(s.id)
-      }
-
-      if (todayStr === dueStr && !s.reminderSentDayOf) {
-        const dueFormatted = s.dueDate.toLocaleString('ko-KR', {
-          timeZone: KST,
-          dateStyle: 'short',
-          timeStyle: 'short',
-        })
-        const msg = `@everyone 🔔 일정 알림 (오늘)\n**${s.title}**\n예정일: ${dueFormatted}${s.note ? `\n${s.note}` : ''}`
-        await sendForSchedule(s, msg)
-        sentIdsDayOf.push(s.id)
+      const dueFormatted = s.dueDate.toLocaleString('ko-KR', {
+        timeZone: KST,
+        dateStyle: 'short',
+        timeStyle: 'short',
+      })
+      const label = dueStr === todayStr ? '오늘' : '내일'
+      const msg = `@everyone 🔔 일정 알림 (${label})\n**${s.title}**\n예정일: ${dueFormatted}${s.note ? `\n${s.note}` : ''}`
+      const ok = await sendForSchedule(s, msg)
+      if (ok) {
+        if (dueStr === todayStr) sentToday++
+        else sentTomorrow++
       }
     }
 
-    const now = new Date()
-    if (sentIdsDayBefore.length > 0) {
-      await prisma.travelSchedule.updateMany({
-        where: { id: { in: sentIdsDayBefore } },
-        data: { reminderSentDayBefore: now },
-      })
-    }
-    if (sentIdsDayOf.length > 0) {
-      await prisma.travelSchedule.updateMany({
-        where: { id: { in: sentIdsDayOf } },
-        data: { reminderSentDayOf: now },
-      })
-    }
-
-    const total = sentIdsDayBefore.length + sentIdsDayOf.length
-    logger.info(`Reminders sent (cron): dayBefore=${sentIdsDayBefore.length}, dayOf=${sentIdsDayOf.length}`)
+    const total = sentToday + sentTomorrow
+    logger.info(`Reminders sent (cron): today=${sentToday}, tomorrow=${sentTomorrow}`)
     return NextResponse.json({
       success: true,
       sent: total,
-      message: `전날 ${sentIdsDayBefore.length}건, 당일 ${sentIdsDayOf.length}건 알림 전송 완료`,
+      message: `오늘 ${sentToday}건, 내일 ${sentTomorrow}건 알림 전송 완료`,
     })
   } catch (error) {
     logger.error('Send reminders error:', error)
@@ -190,7 +174,7 @@ export async function POST(request: NextRequest) {
     let sent = 0
     for (const s of schedules) {
       if (!s.dueDate) continue
-      const dueStr = getKstDateStr(s.dueDate)
+      const dueStr = getDateStr(s.dueDate)
       if (dueStr !== todayStr && dueStr !== tomorrowStr) continue
 
       const label = dueStr === todayStr ? '오늘' : '내일'
