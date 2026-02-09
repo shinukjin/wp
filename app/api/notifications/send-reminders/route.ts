@@ -47,7 +47,7 @@ async function sendForSchedule(
 }
 
 /**
- * GET: cron용 - 전날/당일 오전 9시(KST)에 알림 전송
+ * GET: cron용 - 전날/당일 오전 10시 30분(KST)에 알림 전송 (테스트용 10:00~10:59)
  * POST: 사용자 직접 보내기 - 오늘/내일 일정 알림 즉시 전송
  */
 export async function GET(request: NextRequest) {
@@ -62,11 +62,12 @@ export async function GET(request: NextRequest) {
     }
 
     const kst = getKstNow()
-    if (kst.hour < 9 || kst.hour >= 10) {
+    // 테스트용: 10:00~10:59 KST (운영 시 9:00~9:59로 변경)
+    if (kst.hour < 10 || kst.hour >= 11) {
       return NextResponse.json({
         success: true,
         sent: 0,
-        message: '오전 9시(9:00~9:59)에만 전송됩니다.',
+        message: '오전 10시(10:00~10:59)에만 전송됩니다. (테스트용)',
       })
     }
 

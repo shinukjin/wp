@@ -204,17 +204,29 @@ type NewRow = {
   remindEnabled: boolean
 }
 
-/** ISO 또는 YYYY-MM-DDTHH:mm → datetime-local 입력용 문자열 */
+const KST = 'Asia/Seoul'
+
+/** ISO 또는 YYYY-MM-DDTHH:mm → datetime-local 입력용 문자열 (한국 시간 기준) */
 function toDatetimeLocal(isoOrLocal: string): string {
   const d = new Date(isoOrLocal)
   if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: KST, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+  const parts = fmt.formatToParts(d)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
+}
+
+/** datetime-local 값(YYYY-MM-DDTHH:mm, 한국 시간) → API 전송용 ISO 문자열 */
+function toKstISO(localStr: string): string {
+  if (!localStr || localStr.length < 16) return ''
+  const normalized = localStr.length === 16 ? localStr + ':00' : localStr
+  return new Date(normalized + '+09:00').toISOString()
 }
 
 function formatDateTime(dateStr: string) {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString('ko-KR', {
+    timeZone: KST,
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -339,7 +351,7 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
     try {
       await apiClient.put(`/travel-schedule/${editingId}`, {
         title: editFormData.title,
-        dueDate: editFormData.dueDate || null,
+        dueDate: editFormData.dueDate ? toKstISO(editFormData.dueDate) : null,
         note: editFormData.note || null,
         remindEnabled: editFormData.remindEnabled,
       })
@@ -366,7 +378,7 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
     try {
       await apiClient.post('/travel-schedule', {
         title: row.title,
-        dueDate: row.dueDate || null,
+        dueDate: row.dueDate ? toKstISO(row.dueDate) : null,
         note: row.note || null,
         remindEnabled: row.remindEnabled,
       })
@@ -391,7 +403,7 @@ export default function TravelScheduleTable({ highlightDate, pageSize: pageSizeP
         valid.map((row) =>
           apiClient.post('/travel-schedule', {
             title: row.title,
-            dueDate: row.dueDate || null,
+            dueDate: row.dueDate ? toKstISO(row.dueDate) : null,
             note: row.note || null,
             remindEnabled: row.remindEnabled,
           })
